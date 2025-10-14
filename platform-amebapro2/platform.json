@@ -1,0 +1,26 @@
+{
+  "name": "ameba-pro2",
+  "title": "Realtek AmebaPro2 Platform",
+  "version": "0.1.0",
+  "description": "Unofficial PlatformIO support for Realtek RTL8735 (AmebaPro2)",
+  "homepage": "https://github.com/Ameba-AIoT/ameba-rtos-pro2",
+
+  "frameworks": {
+    "amebapro2-rtos": {
+      "script": "builder/main.py",
+      "description": "Realtek AmebaPro2 FreeRTOS + SDK"
+    }
+  },
+
+  "packages": {
+    "toolchain-gccarmnoneeabi": {
+      "type": "toolchain",
+      "owner": "platformio",
+      "version": "^1.100301.0"
+    }
+  },
+
+  "boards": {
+    "rtl8735": "boards/rtl8735.json"
+  }
+}

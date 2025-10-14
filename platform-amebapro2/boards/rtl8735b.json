@@ -1,0 +1,18 @@
+{
+  "build": {
+    "core": "ameba-pro2",
+    "f_cpu": "500000000L",
+    "mcu": "rtl8735b",
+    "variant": "rtl8735b"
+  },
+  "frameworks": ["amebapro2-rtos"],
+  "name": "Realtek RTL8735B (AmebaPro2)",
+  "url": "https://www.amebaiot.com/en/amebapro2/",
+  "vendor": "Realtek",
+  "upload": {
+    "maximum_ram_size": 8388608,
+    "maximum_size": 16777216,
+    "protocol": "custom",
+    "require_upload_port": true
+  }
+}
