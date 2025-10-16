@@ -33,6 +33,12 @@ USE_TZ = int(env.GetProjectOption("trustzone") or
              os.environ.get("CONFIG_TRUSTZONE", "0") or
              ("TRUSTZONE" in (env.get("CPPDEFINES") or []) and "1") or
              0)
+
+SECURE_BOOT = int(env.GetProjectOption("secure_boot") or
+             os.environ.get("CONFIG_SECURE_BOOT", "0") or
+             ("SECURE_BOOT" in (env.get("CPPDEFINES") or []) and "1") or
+             0)
+
 USE_WLANMP = int(env.GetProjectOption("wlanmp") or
              os.environ.get("CONFIG_USE_WLANMP", "0") or
              ("USE_WLANMP" in (env.get("CPPDEFINES") or []) and "1") or
@@ -737,116 +743,57 @@ def _copy_nn_bins():
     else:
         print(">>> NOTE: NN model dir not found:", project_models_dir)
 
-def _pad_to_4k(path: str):
-    import os
-    sz = os.stat(path).st_size
-    newsize = (((sz - 1) >> 12) + 1) << 12 if sz else 0
-    pad = newsize - sz
-    if pad > 0:
-        with open(path, "ab", buffering=0) as f:
-            for _ in range(pad):
-                f.write(b"\xFF")
-
-def _touch_4k(path):
-    if not os.path.exists(path):
-        with open(path, "wb") as f:
-            f.write(b"\xFF"*4096)
-
-# === auto collect partition keys from JSON & build mapping ===
-def _collect_valid_keys_from_json(json_path):
+def _build_mapping_from_json(json_path, *, wants_nn=False, include_iq=True, include_fcs_if_exist=True):
     """
-    從 Realtek 的 partition JSON 蒐集 combine 可用的鍵名：
-    1) PARTITIONTABLE.images 內的名稱（例如 'PARTAB'）
-    2) 每個 record 的 type（例如 'PT_FW1', 'PT_BL_PRI', 'PT_ISP_IQ', ...）
+    - 分区表用 PARTITIONTABLE.images 里的 key（如 PARTAB）。
+    - 其它镜像用 records 的 'type' (PT_*) 来映射。
     """
-    keys = set()
-    try:
-        with open(json_path, "r", encoding="utf-8") as f:
-            j = json.load(f)
-    except Exception as e:
-        print(">>> ERR: cannot parse partition json:", json_path, e)
-        return keys
+    with open(json_path, "r", encoding="utf-8") as f:
+        j = json.load(f)
 
-    # 1) PARTITIONTABLE.images
-    try:
-        imgs = j.get("PARTITIONTABLE", {}).get("images", [])
-        for name in imgs:
-            if isinstance(name, str):
-                keys.add(name)
-    except Exception:
-        pass
+    # 1) 先拿到分区表的 key（通常是 PARTAB）
+    pt_imgs = (j.get("PARTITIONTABLE") or {}).get("images") or []
+    pt_key = pt_imgs[0] if pt_imgs else None
+    if not pt_key:
+        # 兜底一下常见名字
+        for k in ("PARTAB", "PTAB"):
+            if k in j:
+                pt_key = k
+                break
+    if not pt_key:
+        raise RuntimeError("Partition JSON 里找不到分区表 key（如 PARTAB/PTAB），请检查 PARTITIONTABLE.images")
 
-    # 2) PARTAB.table.records -> 用 records name 去取 type
-    try:
-        part = j.get("PARTAB", {})
-        table = part.get("table", {})
-        rec_list = table.get("records", [])
-        for rec_name in rec_list:
-            ent = part.get(rec_name, {})
-            tp = ent.get("type")
-            if isinstance(tp, str):
-                keys.add(tp)
-    except Exception:
-        pass
+    # 2) 读取 PARTAB 里的 records，收集出现的 PT_* type
+    part_obj = j.get(pt_key, {})                  # 就是 PARTAB 这颗
+    rec_list = ((part_obj.get("table") or {}).get("records")) or []
+    present_types = set()
+    for rec_name in rec_list:
+        ent = part_obj.get(rec_name, {})
+        tp = ent.get("type")
+        if isinstance(tp, str):
+            present_types.add(tp)
 
-    # 常見別名也一併加入候選（避免不同 JSON 模板差異）
-    # partition image key 常見：PT_PT / PTAB / PARTAB
-    for alias in ("PT_PT", "PTAB", "PARTAB"):
-        if alias not in keys:
-            # 不主動加進 keys（避免誤導），保留這行以便 debug 可見
-            pass
+    def has(*candidates):
+        return next((t for t in candidates if t in present_types), None)
 
-    print(">>> Valid combine keys (from JSON):", sorted(keys))
-    return keys
+    pt_boot = has("PT_BL_PRI", "PT_BL")                  # 主 boot
+    pt_fw   = has("PT_FW1", "PT_FW_PRI", "PT_FW")        # 主 firmware
+    pt_iq   = has("PT_ISP_IQ")
+    pt_nn   = has("PT_NN_MDL", "PT_NN")
+    pt_fcs  = has("PT_FCSDATA", "PT_FCS")
 
-def _pick_first(candidates, available):
-    for k in candidates:
-        if k in available:
-            return k
-    return None
-
-def _build_mapping_from_json(json_path, *,
-                             wants_nn=False,
-                             include_iq=True,
-                             include_fcs_if_exist=True):
-    """
-    回傳 elf2bin combine 用的 mapping 字串，會自動依 JSON 內的實際鍵名拼接：
-    - partition:  PARTAB / PT_PT / PTAB (取 JSON 真的有的)
-    - boot:       PT_BL_PRI / BOOT / BL / BOOT_PRI
-    - firmware:   PT_FW1 / FW1 / IMG2 / FW
-    - iq:         PT_ISP_IQ / ISP_IQ
-    - nn:         PT_NN_MDL / NN_MDL
-    - fcs:        PT_FCSDATA（如果檔存在才加）
-    """
-    keys = _collect_valid_keys_from_json(json_path)
-
-    pt_key   = _pick_first(["PARTAB", "PT_PT", "PTAB"], keys)
-    boot_key = _pick_first(["PT_BL_PRI", "BOOT", "BL", "BOOT_PRI"], keys)
-    fw_key   = _pick_first(["PT_FW1", "FW1", "IMG2", "FW"], keys)
-    iq_key   = _pick_first(["PT_ISP_IQ", "ISP_IQ"], keys)
-    nn_key   = _pick_first(["PT_NN_MDL", "NN_MDL"], keys)
-    fcs_key  = _pick_first(["PT_FCSDATA"], keys)
-
-    missing = [name for name, v in (("PARTITION", pt_key),
-                                    ("BOOT", boot_key),
-                                    ("FIRMWARE", fw_key)) if v is None]
+    missing = [name for name, ok in (("BOOT", pt_boot), ("FIRMWARE", pt_fw)) if not ok]
     if missing:
-        raise RuntimeError(f"Partition JSON 少必要鍵：{missing}；可用鍵={sorted(keys)}")
+        raise RuntimeError(f"Partition JSON 少必要键：{missing}；present_types={sorted(present_types)}")
 
-    parts = [f"{pt_key}=partition.bin",
-             f"{boot_key}=boot.bin",
-             f"{fw_key}=firmware.bin"]
-
-    if include_iq and iq_key:
-        parts.append(f"{iq_key}=firmware_isp_iq.bin")
-
-    if wants_nn and nn_key:
-        parts.append(f"{nn_key}=nn_model.bin")
-
-    # 只有在檔案真的存在且 JSON 有 fcs type 時才加
-    import os
-    if include_fcs_if_exist and fcs_key and os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
-        parts.append(f"{fcs_key}=boot_fcs.bin")
+    # 3) 拼 mapping：分区表用 PARTAB=partition.bin；其他用 PT_*=...
+    parts = [f"{pt_key}=partition.bin", f"{pt_boot}=boot.bin", f"{pt_fw}=firmware.bin"]
+    if include_iq and pt_iq:
+        parts.append(f"{pt_iq}=firmware_isp_iq.bin")
+    if wants_nn and pt_nn:
+        parts.append(f"{pt_nn}=nn_model.bin")
+    if include_fcs_if_exist and pt_fcs and os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
+        parts.append(f"{pt_fcs}=boot_fcs.bin")
 
     mapping = ",".join(parts)
     print(">>> elf2bin combine mapping =", mapping)
@@ -1082,11 +1029,12 @@ def _flash_action(target, source, env):
                                        include_iq=True,
                                        include_fcs_if_exist=True)
 
-    # 有證書就一併帶上（JSON 裏不會列這兩個鍵，但 combine 支援）
-    cert_tbl = os.path.join(build_dir, "certable.bin")
-    cert_bin = os.path.join(build_dir, "certificate.bin")
-    if os.path.exists(cert_tbl) and os.path.exists(cert_bin):
-        mapping = f"{mapping},CER_TBL=certable.bin,KEY_CER1=certificate.bin"
+    if SECURE_BOOT:
+        # 有證書就一併帶上（JSON 裏不會列這兩個鍵，但 combine 支援）
+        cert_tbl = os.path.join(build_dir, "certable.bin")
+        cert_bin = os.path.join(build_dir, "certificate.bin")
+        if os.path.exists(cert_tbl) and os.path.exists(cert_bin):
+            mapping = f"{mapping},CER_TBL=certable.bin,KEY_CER1=certificate.bin"
 
     _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, mapping], cwd=build_dir)
 
@@ -1123,11 +1071,12 @@ def _flash_nn_action(target, source, env):
                                        include_iq=True,
                                        include_fcs_if_exist=True)
 
-    # 若有證書則帶上
-    cert_tbl = os.path.join(build_dir, "certable.bin")
-    cert_bin = os.path.join(build_dir, "certificate.bin")
-    if os.path.exists(cert_tbl) and os.path.exists(cert_bin):
-        mapping = f"{mapping},CER_TBL=certable.bin,KEY_CER1=certificate.bin"
+    if SECURE_BOOT:
+        # 若有證書則帶上
+        cert_tbl = os.path.join(build_dir, "certable.bin")
+        cert_bin = os.path.join(build_dir, "certificate.bin")
+        if os.path.exists(cert_tbl) and os.path.exists(cert_bin):
+            mapping = f"{mapping},CER_TBL=certable.bin,KEY_CER1=certificate.bin"
 
     _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, mapping], cwd=build_dir)
 
