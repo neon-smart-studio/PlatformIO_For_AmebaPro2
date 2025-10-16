@@ -45,6 +45,8 @@ UNITEST    = int(env.GetProjectOption("unitest") or
              ("UNITEST" in (env.get("CPPDEFINES") or []) and "1") or
              0)
 
+PRELOAD_NN = int(env.GetProjectOption("preload_nn") or os.environ.get("PRELOAD_NN", "1"))
+
 # 兼容多種格式
 flags = env.GetProjectOption("build_flags")
 if not flags:
@@ -64,7 +66,7 @@ for f in flags:
 
 project_application_dir   = os.path.join(env.subst("$PROJECT_DIR"), "src")
 project_include_dir       = os.path.join(env.subst("$PROJECT_DIR"), "include")
-project_models_dir        = os.path.join(env.subst("$PROJECT_DIR"), "models/model_nb")
+project_models_dir        = os.path.join(env.subst("$PROJECT_DIR"), "models")
 sdk_project_root_dir      = os.path.join(sdk_dir, "project", "realtek_amebapro2_v0_example/GCC-RELEASE")
 sdk_cmake_ROM_dir         = os.path.join(sdk_project_root_dir, "ROM/GCC")
 sdk_cmake_bootloader_dir  = os.path.join(sdk_project_root_dir, "bootloader")
@@ -112,14 +114,6 @@ nm = os.path.join(toolchain, "bin", "arm-none-eabi-nm")
 build_dir = os.path.join(env.subst("$BUILD_DIR"), "amebapro2")
 if not os.path.exists(build_dir): 
     os.makedirs(build_dir) 
-
-def _safe_copy(src, dst):
-    import shutil, os
-    if os.path.exists(src):
-        shutil.copy2(src, dst)
-        return True
-    print(f">>> WARN: {src} not found; skip copy")
-    return False
 
 # bootloader sources/inc 
 bootloader_src = [
@@ -471,8 +465,6 @@ application_src = [
     os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/event_groups.c"),
     os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/stream_buffer.c"),
     #os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/MemMang/heap_5.c"),
-    os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/non_secure/port.c"),
-    os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/non_secure/portasm.c"),
 ]
 
 if USE_TZ:
@@ -488,6 +480,8 @@ if USE_TZ:
     ]
 else:
     application_src += [
+        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/non_secure/port.c"),
+        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/non_secure/portasm.c"),
         os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_flash_ns.c"),
         os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_spic_ns.c"),
         os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_wlan.c"),
@@ -687,39 +681,22 @@ env_application.Append(CPPPATH=application_inc, CPPDEFINES=env.get("CPPDEFINES",
 application_objs = _mk_objs(env_application, application_src, ".application", os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application/obj"))
 application_proj_src = collect_sources(project_application_dir)
 application_proj_objs = _mk_objs(env_application, application_proj_src, ".application", os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application/obj"))
-if USE_TZ:
-    application_elf = env_application.Program(
-        target=os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application.elf"),
-        source=application_objs + application_proj_objs,
-        LIBPATH=[os.path.join(sdk_cmake_application_dir, "lib/application")],
-        LIBS=extra_libs_application,
-        LINKFLAGS=[
-            "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=hard",
-            "-L" + sdk_cmake_ROM_dir,
-            "-T" + os.path.join(sdk_cmake_application_dir, "rtl8735b_ram_ns.ld"),
-            "-nostartfiles", "--specs=nosys.specs",
-            "-Wl,--gc-sections", "-Wl,--warn-section-align",
-            "-Wl,-Map=" + os.path.join(build_dir, "target_application.map"),
-            "-Wl,--cref", "-Wl,--no-enum-size-warning",
-        ]
-    )
-else:
-    application_elf = env_application.Program(
-        target=os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application.elf"),
-        source=application_objs + application_proj_objs,
-        LIBPATH=[os.path.join(sdk_cmake_application_dir, "lib/application")],
-        LIBS=extra_libs_application,
-        LINKFLAGS=[
-            "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=hard",
-            "-L" + sdk_cmake_ROM_dir,
-            "-T" + os.path.join(sdk_cmake_application_dir, "rtl8735b_ram.ld"),
-            "-nostartfiles", "--specs=nosys.specs",
-            "-Wl,--gc-sections", "-Wl,--warn-section-align",
-            "-Wl,-Map=" + os.path.join(build_dir, "target_application.map"),
-            "-Wl,--cref", "-Wl,--no-enum-size-warning",
-        ]
-    )
-    
+application_elf = env_application.Program(
+    target=os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application.elf"),
+    source=application_objs + application_proj_objs,
+    LIBPATH=[os.path.join(sdk_cmake_application_dir, "lib/application")],
+    LIBS=extra_libs_application,
+    LINKFLAGS=[
+        "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=hard",
+        "-L" + sdk_cmake_ROM_dir,
+        "-T" + os.path.join(sdk_cmake_application_dir, "rtl8735b_ram_s.ld" if USE_TZ else "rtl8735b_ram.ld"),
+        "-nostartfiles", "--specs=nosys.specs",
+        "-Wl,--gc-sections", "-Wl,--warn-section-align",
+        "-Wl,-Map=" + os.path.join(build_dir, "target_application.map"),
+        "-Wl,--cref", "-Wl,--no-enum-size-warning",
+    ]
+)
+
 def _run(cmd, strict=True, cwd=None):
     import subprocess, shlex
     # 支援 list 或字串
@@ -735,6 +712,29 @@ def _run(cmd, strict=True, cwd=None):
     if strict and r.returncode != 0:
         raise RuntimeError(f"Command failed: {printable}")
     return r.returncode
+
+def _safe_copy(src, dst):
+    import shutil, os
+    if os.path.exists(src):
+        shutil.copy2(src, dst)
+        return True
+    print(f">>> WARN: {src} not found; skip copy")
+    return False
+
+def _copy_glob(globpat, dst_dir):
+    os.makedirs(dst_dir, exist_ok=True)
+    cnt = 0
+    for p in glob.glob(globpat):
+        shutil.copy2(p, os.path.join(dst_dir, os.path.basename(p)))
+        cnt += 1
+    return cnt
+
+def _copy_nn_bins():
+    if os.path.isdir(project_models_dir):
+        copied = _copy_glob(os.path.join(project_models_dir, "*.nb"), build_dir)
+        print(f">>> Copied {copied} NN *.nb files to build_dir")
+    else:
+        print(">>> NOTE: NN model dir not found:", project_models_dir)
 
 def _pad_to_4k(path: str):
     import os
@@ -759,43 +759,6 @@ def _concat_bins(out_path:str, *parts:str):
             with open(p, "rb") as r:
                 w.write(r.read())
 
-def _flash_action(target, source, env):
-    tgt = "flash_tz" if USE_TZ else "flash_ntz"
-    if USE_WLANMP:
-        tgt += "_mp"
-    out = os.path.join(build_dir, f"{tgt}.bin")
-
-    # 確保要用到的檔案都在 build_dir
-    fw  = os.path.join(build_dir, "firmware.bin")
-    app = os.path.join(build_dir, "application.bin")
-    if (not os.path.exists(fw)) and os.path.exists(app):
-        _safe_copy(app, fw)
-    isp = os.path.join(build_dir, "firmware_isp_iq.bin")
-    if not os.path.exists(isp):
-        _touch_4k(isp)  # 沒有就補一份空的，避免 combine 抱怨
-
-    part_json = sdk_amebapro2_partitiontable_path
-    if MPCHIP:
-        mapping = "CER_TBL=certable.bin,KEY_CER1=certificate.bin,PT_BL_PRI=boot.bin,PT_FW1=firmware.bin,PT_ISP_IQ=firmware_isp_iq.bin"
-        if os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
-            mapping += ",PT_FCSDATA=boot_fcs.bin"
-    else:
-        mapping = "BOOT=boot.bin,FW1=firmware.bin,PT_ISP_IQ=firmware_isp_iq.bin"
-
-    # 讓 elf2bin 在 build_dir 執行，mapping 的相對檔名就能打得到
-    _run([sdk_elf2bin_path, "combine", part_json, out, mapping], cwd=build_dir)
-
-    # 產 OTA（有才做 checksum）
-    for src, dst in [("firmware.bin","ota.bin"),
-                     ("firmware_isp_iq.bin","isp_iq_ota.bin"),
-                     ("boot.bin","boot_ota.bin")]:
-        if _safe_copy(os.path.join(build_dir, src), os.path.join(build_dir, dst)):
-            try: _run([sdk_checksum_path, os.path.join(build_dir, dst)], strict=False)
-            except Exception as e: print(">>> WARN: sdk_checksum_path skipped:", e)
-
-    print(">>> flash done:", out)
-    return 0
-
 def postprocess_bootloader_with_elf2bin():
     image_out = build_dir
     os.makedirs(image_out, exist_ok=True)
@@ -809,14 +772,11 @@ def postprocess_bootloader_with_elf2bin():
         subprocess.run([objdump, "-d", boot_elf], stdout=wf)
     shutil.copyfile(boot_elf, os.path.join(image_out, "bootloader.axf"))
 
-    if not MPCHIP:
-        # keygen + convert（與 CMake 相同參數）
+    if MPCHIP:
         _run([sdk_elf2bin_path, "keygen", sdk_key_cfg_path, "key"], cwd=image_out)
-        _run([sdk_elf2bin_path, "convert", sdk_amebapro2_bootloader_path, "BOOTLOADER", "boot.bin"], cwd=image_out)
 
-    else:
-        # MPCHIP：把 POSTBUILD_BOOT 當成 json
-        _run([sdk_elf2bin_path, "convert", sdk_amebapro2_bootloader_path, "BOOTLOADER", "boot.bin"], cwd=image_out)
+    # MPCHIP：把 POSTBUILD_BOOT 當成 json
+    _run([sdk_elf2bin_path, "convert", sdk_amebapro2_bootloader_path, "BOOTLOADER", "boot.bin"], cwd=image_out)
 
     # boot.bin 應該已經存在
     boot_bin = os.path.join(image_out, "boot.bin")
@@ -872,44 +832,14 @@ def postprocess_bootloader_with_elf2bin():
     # 回傳可能會被 imagetool 合併用到的路徑（若不存在，也不致於中斷）
     return boot_bin if os.path.exists(boot_bin) else None,
 
-def _sensor_iq_action(target, source, env):
-    os.makedirs(build_dir, exist_ok=True)
-
-    # 1) 複製 VOE 的 IQ/FCS 素材到工作目錄
-    for p in glob.glob(os.path.join(sdk_voe_bin_dir, "*.bin")):
-        _safe_copy(p, os.path.join(build_dir, os.path.basename(p)))
-
-    # 3) 由 sensor.h 產出/更新清單（CMake 的 GENSNRLST）
-    if os.path.exists(sdk_gensnrlst_path):
-        try:
-            _run([sdk_gensnrlst_path, os.path.join(project_include_dir,"sensor.h")], cwd=build_dir, strict=False)
-        except Exception as e:
-            print(">>> WARN: gen_snrlst failed:", e)
-    else:
-        print(">>> NOTE: gen_snrlst tool not found:", sdk_gensnrlst_path)
-
-    # 4) 產生 iq_set.bin（= ISP_SENSOR_SETS）
-    _run([sdk_elf2bin_path, "convert", sdk_amebapro2_sensor_set_json, "ISP_SENSOR_SETS", "iq_set.bin"], cwd=build_dir)
-
-    # 同步一份傳統檔名（若你的其他腳本在找 isp_iq.bin）
-    _safe_copy(os.path.join(build_dir, "iq_set.bin"), os.path.join(build_dir, "isp_iq.bin"))
-
-    # 5) 產生 firmware_isp_iq.bin（打包給分區）
-    _run([sdk_elf2bin_path, "convert", sdk_amebapro2_isp_iq_json, "FIRMWARE", "firmware_isp_iq.bin"], cwd=build_dir)
-
-    print(">>> sensor IQ done:", os.path.join(build_dir, "iq_set.bin"),
-          " & ", os.path.join(build_dir, "firmware_isp_iq.bin"))
-    return 0
-
 def postprocess_application_with_elf2bin():
     image_out = build_dir
     os.makedirs(image_out, exist_ok=True)
-
     app_elf = os.path.join(build_dir, "application.elf")
     if not os.path.exists(app_elf):
         raise FileNotFoundError("application.elf not found")
 
-    # 可讀性輸出：asm/map/axf（與 bootloader 對齊）
+    # symbols / asm / axf
     try:
         with open(os.path.join(image_out, "application.nm.map"), "w", encoding="utf-8") as wf:
             subprocess.run([nm, "-n", app_elf], stdout=wf, text=True, check=False)
@@ -918,47 +848,34 @@ def postprocess_application_with_elf2bin():
     except Exception:
         pass
 
-    if USE_TZ:
-        axf_filename = "application.s.axf"
-    else:
-        axf_filename = "application.ntz.axf"
+    axf_filename = "application.ns.axf" if USE_TZ else "application.ntz.axf"
     shutil.copyfile(app_elf, os.path.join(image_out, axf_filename))
 
-    # 可由環境覆寫 JSON / profile；預設走 FIRMWARE
-    app_json   = os.environ.get("POSTBUILD_APP_JSON", sdk_amebapro2_application_path)
-    app_profile= os.environ.get("POSTBUILD_FIRMWARE_PROFILE", "FIRMWARE")
+    # 轉成 firmware_tz.bin / firmware_ntz.bin
+    post_json = sdk_amebapro2_application_path
+    firmware_name = "firmware_tz.bin" if USE_TZ else "firmware_ntz.bin"
+    _run([sdk_elf2bin_path, "convert", post_json, "FIRMWARE", firmware_name], cwd=image_out)
 
-    # application.bin
+    # application.bin（保留你原工作流用）
     out_img2 = os.path.join(build_dir, "application.bin")
-    _run([sdk_elf2bin_path, "convert", app_json, app_profile, out_img2], cwd=image_out)
+    _safe_copy(os.path.join(build_dir, firmware_name), out_img2)
 
-    # 如果 JSON 把檔生在 output/，幫你搬回來
-    if not os.path.exists(out_img2):
-        cands = glob.glob(os.path.join(image_out, "output", "application*.bin"))
-        if cands:
-            shutil.copy2(cands[0], out_img2)
+    # 產 application.symbols（供 nn_model_cfg 使用）
+    sym_out = os.path.join(image_out, "application.symbols")
+    try:
+        with open(sym_out, "w", encoding="utf-8") as wf:
+            subprocess.run([nm, "-n", app_elf], stdout=wf, text=True, check=False)
+    except Exception:
+        print(">>> WARN: cannot generate application.symbols")
 
-    if not os.path.exists(out_img2):
-        print(">>> WARN: application.bin not found after elf2bin convert（請檢查 JSON / profile / 路徑）")
-
-    # 同步其他可能的副檔（非必需；imagetool 可能會用到）
-    for name in ("application_image3_all.bin", "application_image3_psram.bin", "application_boot_all.bin"):
-        p = os.path.join(image_out, name)
-        if not os.path.exists(p):
-            q = os.path.join(image_out, "output", name)
-            if os.path.exists(q):
-                shutil.copy2(q, p)
-
-    # 對齊 CMake：複製到 output/
+    # output/
     outdir = os.path.join(image_out, "output")
     os.makedirs(outdir, exist_ok=True)
-    for f in ("application.bin", axf_filename, "application.nm.map", "application.asm"):
-        p = os.path.join(image_out, f)
-        if os.path.exists(p):
-            _safe_copy(p, os.path.join(outdir, f))
+    for f in ("application.bin", firmware_name, axf_filename, "application.nm.map", "application.asm", "application.symbols"):
+        _safe_copy(os.path.join(image_out, f), os.path.join(outdir, f))
 
-    print(">>> application (sdk_elf2bin_path) done")
-    return {"application": out_img2 if os.path.exists(out_img2) else None}
+    print(">>> application postbuild done")
+    return {"firmware": os.path.join(build_dir, firmware_name), "symbols": sym_out}
 
 def _post_bootloader_elf2bin_action(target, source, env):
     postprocess_bootloader_with_elf2bin()
@@ -982,92 +899,285 @@ application_all_bin = env.Command(
     _post_application_image_action
 )
 
-# =========================
-# 完整合併程式（沿用你現有的 Python 版 imagetool）
-# =========================
-def _imagetool_image2_action(target, source, env):
-    """
-    Python 版 imagetool：對齊 SDK gnu_utility/image_tool/imagetool.sh 的主要步驟
-    - 將 boot.bin + application.bin 依 4KB 對齊後合併
-    - 如偵測到 image3（PSRAM/ALL），依「PSRAM 優先，其次 ALL」的順序追加
-    - 安全性（RSIP / Secure Boot / RDP）由 hash/sign/sign_enc 三個 target 負責；此處僅產生最小可用的裸合併檔
-    輸出檔名：
-      flash_tz.bin  (TRUSTZONE=1)
-      flash_ntz.bin (TRUSTZONE=0)
-    """
-    out_name = "flash_tz.bin" if USE_TZ else "flash_ntz.bin"
-    out_path = os.path.join(build_dir, out_name)
-    os.makedirs(build_dir, exist_ok=True)
-
-    boot_bin = os.path.join(build_dir, "boot.bin")
-    app_bin  = os.path.join(build_dir, "application.bin")
-
-    if not os.path.exists(boot_bin):
-        raise FileNotFoundError("boot.bin not found; bootloader postbuild failed?")
-    if not os.path.exists(app_bin):
-        raise FileNotFoundError("application.bin not found; application postbuild failed?")
-
-    # 依 4KB 對齊：與工具鏈保持一致（flash 分區對齊）
-    _pad_to_4k(boot_bin)
-    _pad_to_4k(app_bin)
-
-    # image3（有就追加；沒有就跳過）
-    img3_candidates = [
-        os.path.join(build_dir, "application_image3_psram.bin"),
-        os.path.join(build_dir, "application_image3_all.bin"),
-        os.path.join(build_dir, "application_boot_all.bin"),
-    ]
-    img3 = None
-    for p in img3_candidates:
-        if os.path.exists(p):
-            img3 = p
-            _pad_to_4k(img3)
-            break
-
-    parts = [boot_bin, app_bin] + ([img3] if img3 else [])
-    _concat_bins(out_path, *parts)
-
-    print(">>> imagetool: merged ->", out_path,
-          "(+ image3:", os.path.basename(img3) if img3 else "none", ")")
+def _keygen_action(target, source, env):
+    print(">>> keygen action...")
+    if not MPCHIP:
+        print(">>> keygen skipped (non-MPCHIP)")
+        return 0
+    # keycfg.json -> key_public.json/key_private.json
+    _run([sdk_elf2bin_path, "keygen", sdk_key_cfg_path, "key"], cwd=build_dir)
+    print(">>> keygen done")
     return 0
 
-deps_for_merge = [bootloader_all_bin, application_all_bin]
+def _sensor_iq_action(target, source, env):
+    print(">>> sensor IQ action...")
 
-bootloader_application_image2_bin = env.Command(
-    os.path.join(build_dir, "flash_ntz.bin"),
-    deps_for_merge,
-    _imagetool_image2_action
+    # 1) VOE bin 複製
+    _copy_glob(os.path.join(sdk_voe_bin_dir, "*.bin"), build_dir)
+
+    # 2/3) 由 sensor.h 產 snrlist（可選）
+    if sdk_gensnrlst_path and os.path.exists(sdk_gensnrlst_path):
+        try:
+            _run([sdk_gensnrlst_path, os.path.join(project_include_dir, "sensor.h")], cwd=build_dir, strict=False)
+        except Exception as e:
+            print(">>> WARN: gen_snrlst failed:", e)
+
+    if MPCHIP:
+        # 4) ISP_SENSOR_SETS
+        _run([sdk_elf2bin_path, "convert", sdk_amebapro2_sensor_set_json, "ISP_SENSOR_SETS", "iq_set.bin"], cwd=build_dir)
+        _safe_copy(os.path.join(build_dir, "iq_set.bin"), os.path.join(build_dir, "isp_iq.bin"))
+        # 5) firmware_isp_iq.bin
+        _run([sdk_elf2bin_path, "convert", sdk_amebapro2_isp_iq_json, "FIRMWARE", "firmware_isp_iq.bin"], cwd=build_dir)
+    else:
+        # 非 MPCHIP 沒有專用 JSON，保持空白 4KB 以便合併不失敗
+        _touch_4k(os.path.join(build_dir, "firmware_isp_iq.bin"))
+
+    print(">>> sensor IQ done")
+    return 0
+
+def _plain_img_action(target, source, env):
+    print(">>> plain_img action...")
+
+    # 對齊 CMake：先拷貝 NN *.nb
+    if PRELOAD_NN:
+        _copy_nn_bins()
+    else:
+        print(">>> skip copying NN models (PRELOAD_NN=0)")
+
+    if MPCHIP:
+        # cert / partition
+        _run([sdk_elf2bin_path, "convert", sdk_certificate_json, "CERT_TABLE", "certable.bin"], cwd=build_dir)
+        _run([sdk_elf2bin_path, "convert", sdk_certificate_json, "CERTIFICATE", "certificate.bin"], cwd=build_dir)
+
+        _run([sdk_elf2bin_path, "convert", sdk_amebapro2_partitiontable_path, "PARTITIONTABLE", "partition.bin"], cwd=build_dir)
+
+        # boot / fcs / firmware / isp_iq
+        _safe_copy(os.path.join(build_dir, "boot.bin"), os.path.join(build_dir, "boot.bin"))
+        if os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
+            pass  # 已在 boot 後處理階段可能產生
+        # firmware_xx.bin -> firmware.bin
+        fw_src = os.path.join(build_dir, "firmware_tz.bin" if USE_TZ else "firmware_ntz.bin")
+        _safe_copy(fw_src, os.path.join(build_dir, "firmware.bin"))
+        _safe_copy(os.path.join(build_dir, "firmware_isp_iq.bin"), os.path.join(build_dir, "firmware_isp_iq.bin"))
+
+        # application.symbols（從 output/ 或本地）
+        sym_src = os.path.join(build_dir, "application.symbols")
+        if not os.path.exists(sym_src):
+            _safe_copy(os.path.join(build_dir, "output", "application.symbols"), sym_src)
+        # APP.trace（若存在就拷）
+        app_trace = os.path.join(build_dir, "APP.trace")
+        if not os.path.exists(app_trace) and os.path.exists(os.path.join(build_dir, "output", "APP.trace")):
+            _safe_copy(os.path.join(build_dir, "output", "APP.trace"), app_trace)
+
+    else:
+        # 非 MPCHIP：依 CMake 非 MP 分支拷貝
+        fw_src = os.path.join(build_dir, "firmware_tz.bin" if USE_TZ else "firmware_ntz.bin")
+        _safe_copy(fw_src, os.path.join(build_dir, "firmware.bin"))
+
+    print(">>> plain_img prepared")
+    return 0
+
+# ---- auto_model_cfg ----
+def _auto_model_cfg_action(target, source, env):
+    print(">>> auto_model cfg action...")
+
+    if UNITEST:
+        print(">>> auto NN model config start")
+        _run([sdk_nn_model_cfg_path, sdk_amebapro2_fwfs_nn_models_path, "application.symbols"], cwd=build_dir)
+    else:
+        print(">>> skip model config (UNITEST=0)")
+    return 0
+
+# ---- flash (CMake: flash ；含 MP / 非 MP 分支) ----
+def _flash_action(target, source, env):
+    print(">>> flash action...")
+
+    tgt = "flash_tz" if USE_TZ else "flash_ntz"
+    if USE_WLANMP:
+        tgt += "_mp"
+    out = os.path.join(build_dir, f"{tgt}.bin")
+
+    if MPCHIP:
+        # 需有 partition.bin / certificate.bin / certable.bin / boot.bin / firmware.bin / firmware_isp_iq.bin
+        mapping = "PT_PT=partition.bin,CER_TBL=certable.bin,KEY_CER1=certificate.bin,PT_BL_PRI=boot.bin,PT_FW1=firmware.bin,PT_ISP_IQ=firmware_isp_iq.bin"
+        if os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
+            mapping += ",PT_FCSDATA=boot_fcs.bin"
+        _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, mapping], cwd=build_dir)
+        # OTA + checksum
+        for src, dst in [("firmware.bin","ota.bin"),
+                         ("firmware_isp_iq.bin","isp_iq_ota.bin"),
+                         ("boot.bin","boot_ota.bin")]:
+            if _safe_copy(os.path.join(build_dir, src), os.path.join(build_dir, dst)) and sdk_checksum_path:
+                _run([sdk_checksum_path, os.path.join(build_dir, dst)], strict=False)
+    else:
+        # 一些 JSON 會要求 user.bin，先放 4KB 空檔避免缺檔
+        _touch_4k(os.path.join(build_dir, "user.bin"))
+        
+        # 非 MPCHIP（CMake 非 MP combine）
+        _run([sdk_elf2bin_path, "convert", sdk_amebapro2_partitiontable_path, "PARTITIONTABLE", "partition.bin"], cwd=build_dir)
+        _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, "PTAB=partition.bin,BOOT=boot.bin,FW1=firmware.bin,PT_ISP_IQ=firmware_isp_iq.bin"], cwd=build_dir)
+
+    print(">>> flash done:", out)
+    return 0
+
+# ---- flash_nn ----
+def _flash_nn_action(target, source, env):
+    print(">>> flash nn action...")
+    tgt = "flash_tz" if USE_TZ else "flash_ntz"
+    if USE_WLANMP:
+        tgt += "_mp"
+    out = os.path.join(build_dir, f"{tgt}.nn.bin")
+
+    # 生成 fwfs_nn_model.bin / nn_model.bin
+    _run([sdk_elf2bin_path, "convert", sdk_amebapro2_fwfs_nn_models_path, "FWFS", "fwfs_nn_model.bin"], cwd=build_dir)
+    _run([sdk_elf2bin_path, "convert", sdk_amebapro2_nn_model_path,      "FIRMWARE", "nn_model.bin"], cwd=build_dir)
+
+    if MPCHIP:
+        # MP 路径：使用 partition JSON + 带 PT_* 键的映射
+        mapping = "PT_PT=partition.bin,CER_TBL=certable.bin,KEY_CER1=certificate.bin," \
+                  "PT_BL_PRI=boot.bin,PT_FW1=firmware.bin,PT_NN_MDL=nn_model.bin,PT_ISP_IQ=firmware_isp_iq.bin"
+        if os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
+            mapping += ",PT_FCSDATA=boot_fcs.bin"
+        _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, mapping], cwd=build_dir)
+
+        # OTA + checksum（可选）
+        if sdk_checksum_path:
+            for src, dst in [("firmware.bin","ota.bin"),
+                             ("nn_model.bin","nn_model_ota.bin"),
+                             ("firmware_isp_iq.bin","isp_iq_ota.bin")]:
+                if _safe_copy(os.path.join(build_dir, src), os.path.join(build_dir, dst)):
+                    _run([sdk_checksum_path, os.path.join(build_dir, dst)], strict=False)
+    else:
+        # 一些 JSON 會要求 user.bin，先放 4KB 空檔避免缺檔
+        _touch_4k(os.path.join(build_dir, "user.bin"))
+
+        # 非 MP 路径：先把 JSON 转成 partition.bin，然后使用非 PT_* 键
+        _run([sdk_elf2bin_path, "convert", sdk_amebapro2_partitiontable_path, "PARTITIONTABLE", "partition.bin"], cwd=build_dir)
+        mapping = "PTAB=partition.bin,BOOT=boot.bin,FW1=firmware.bin,NN_MDL=nn_model.bin,PT_ISP_IQ=firmware_isp_iq.bin"
+        _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, mapping], cwd=build_dir)
+
+    print(">>> flash_nn done:", out)
+    return 0
+
+# ---- secure: hash / sign / sign_enc（MPCHIP）----
+def _secure_action(mode):
+    def _act(target, source, env):
+        if not MPCHIP:
+            print(f">>> {mode} skipped (non-MPCHIP)")
+            return 0
+        # sign/hash
+        if mode == "hash":
+            _run([sdk_elf2bin_path, "secure", "sign+dbg=cert", "key_private.json", "key_public.json", "certificate.bin", "certificate_signed.bin"], cwd=build_dir)
+            _run([sdk_elf2bin_path, "secure", "hash+dbg=ptab", "key_private.json", "key_public.json", "partition.bin", "partition_hashed.bin"], cwd=build_dir)
+            _run([sdk_elf2bin_path, "secure", "hash+dbg=boot", "key_private.json", "key_public.json", "boot.bin", "boot_hashed.bin"], cwd=build_dir)
+            _run([sdk_elf2bin_path, "secure", "hash+dbg=fw",   "key_private.json", "key_public.json", "firmware.bin", "firmware_hashed.bin"], cwd=build_dir)
+            tgt = "flash_tz" if USE_TZ else "flash_ntz"
+            if USE_WLANMP: tgt += "_mp"
+            out = os.path.join(build_dir, f"{tgt}.bin")
+            mapping = "PT_PT=partition_hashed.bin,CER_TBL=certable.bin,KEY_CER1=certificate_signed.bin,PT_BL_PRI=boot_hashed.bin,PT_FW1=firmware_hashed.bin,PT_ISP_IQ=firmware_isp_iq.bin"
+            if os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
+                mapping += ",PT_FCSDATA=boot_fcs.bin"
+            _run([sdk_elf2bin_path, "combine", "amebapro2_partitiontable.json", out, mapping], cwd=build_dir)
+            if sdk_checksum_path:
+                if _safe_copy(os.path.join(build_dir, "firmware_hashed.bin"), os.path.join(build_dir, "ota.bin")):
+                    _run([sdk_checksum_path, os.path.join(build_dir, "ota.bin")], strict=False)
+        elif mode == "sign":
+            _run([sdk_elf2bin_path, "secure", "sign+dbg=cert", "key_private.json", "key_public.json", "certificate.bin", "certificate_signed.bin"], cwd=build_dir)
+            _run([sdk_elf2bin_path, "secure", "sign+hash+dbg=ptab", "key_private.json", "key_public.json", "partition.bin", "partition_signed.bin"], cwd=build_dir)
+            _run([sdk_elf2bin_path, "secure", "sign+hash+dbg=boot", "key_private.json", "key_public.json", "boot.bin", "boot_signed.bin"], cwd=build_dir)
+            _run([sdk_elf2bin_path, "secure", "sign+hash+dbg=fw",   "key_private.json", "key_public.json", "firmware.bin", "firmware_signed.bin"], cwd=build_dir)
+            tgt = "flash_tz" if USE_TZ else "flash_ntz"
+            if USE_WLANMP: tgt += "_mp"
+            out = os.path.join(build_dir, f"{tgt}.bin")
+            mapping = "PT_PT=partition_signed.bin,CER_TBL=certable.bin,KEY_CER1=certificate_signed.bin,PT_BL_PRI=boot_signed.bin,PT_FW1=firmware_signed.bin,PT_ISP_IQ=firmware_isp_iq.bin"
+            if os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
+                mapping += ",PT_FCSDATA=boot_fcs.bin"
+            _run([sdk_elf2bin_path, "combine", "amebapro2_partitiontable.json", out, mapping], cwd=build_dir)
+            if sdk_checksum_path:
+                if _safe_copy(os.path.join(build_dir, "firmware_signed.bin"), os.path.join(build_dir, "ota.bin")):
+                    _run([sdk_checksum_path, os.path.join(build_dir, "ota.bin")], strict=False)
+        elif mode == "sign_enc":
+            # 需要 encrypt_bl.json / encrypt_fw.json（MP JSON 已內建）
+            enc_boot = os.path.join(sdk_mp_dir, "encrypt_bl.json")
+            enc_fw   = os.path.join(sdk_mp_dir, "encrypt_fw.json")
+            _run([sdk_elf2bin_path, "secure", "sign+dbg=cert", "key_private.json", "key_public.json", "certificate.bin", "certificate_signed.bin"], cwd=build_dir)
+            _run([sdk_elf2bin_path, "secure", "sign+hash+dbg=ptab", "key_private.json", "key_public.json", "partition.bin", "partition_signed.bin"], cwd=build_dir)
+            _run([sdk_elf2bin_path, "secure", "sign+enc+hash+dbg=boot", "key_private.json", "key_public.json", enc_boot, "boot.bin", "boot_signed_enc.bin"], cwd=build_dir)
+            _run([sdk_elf2bin_path, "secure", "sign+enc+hash+dbg=fw",   "key_private.json", "key_public.json", enc_fw,   "firmware.bin", "firmware_signed_enc.bin"], cwd=build_dir)
+            tgt = "flash_tz" if USE_TZ else "flash_ntz"
+            if USE_WLANMP: tgt += "_mp"
+            out = os.path.join(build_dir, f"{tgt}.bin")
+            mapping = "PT_PT=partition_signed.bin,CER_TBL=certable.bin,KEY_CER1=certificate_signed.bin,PT_BL_PRI=boot_signed_enc.bin,PT_FW1=firmware_signed_enc.bin,PT_ISP_IQ=firmware_isp_iq.bin"
+            if os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
+                mapping += ",PT_FCSDATA=boot_fcs.bin"
+            _run([sdk_elf2bin_path, "combine", "amebapro2_partitiontable.json", out, mapping], cwd=build_dir)
+            if sdk_checksum_path:
+                if _safe_copy(os.path.join(build_dir, "firmware_signed_enc.bin"), os.path.join(build_dir, "ota.bin")):
+                    _run([sdk_checksum_path, os.path.join(build_dir, "ota.bin")], strict=False)
+        print(f">>> {mode} done")
+        return 0
+    return _act
+
+keygen = env.Command(
+    [os.path.join(build_dir, "key_public.json"),
+     os.path.join(build_dir, "key_private.json")],
+    [], _keygen_action
 )
-
-# --- SCons targets / aliases 對齊 CMake 名稱 ---
+Alias("keygen", keygen)
 
 sensor_iq_target = env.Command(
     [os.path.join(build_dir, "iq_set.bin"),
      os.path.join(build_dir, "isp_iq.bin"),
      os.path.join(build_dir, "firmware_isp_iq.bin")],
-    [],  # 無顯式來源，純動作
-    _sensor_iq_action
+    [], _sensor_iq_action
 )
 
-flash = env.Command(os.path.join(build_dir, ".stamp_plain_img"), [bootloader_application_image2_bin], _flash_action)
-
 Alias("fcs_isp_iq", [sensor_iq_target])
-Alias("flash",     [flash])
+plain_img = env.Command(
+    os.path.join(build_dir, ".stamp_plain_img"),
+    [bootloader_all_bin, application_all_bin, sensor_iq_target, keygen],
+    _plain_img_action
+)
+
+auto_model_cfg = env.Command(
+    os.path.join(build_dir, ".stamp_auto_model_cfg"),
+    [plain_img],
+    _auto_model_cfg_action
+)
+Alias("auto_model_cfg", auto_model_cfg)
+
+if PRELOAD_NN:
+    flash_nn = env.Command(
+        os.path.join(build_dir, ".stamp_flash_nn"),
+        [plain_img, auto_model_cfg],
+        _flash_nn_action
+    )
+    Alias("flash_nn", [flash_nn])
+else:
+    flash_target = env.Command(
+        os.path.join(build_dir, ".stamp_flash"),
+        [plain_img],
+        _flash_action
+    )
+    Alias("flash", [flash_target])
+
+hash_target = env.Command(os.path.join(build_dir, ".stamp_hash"),     [plain_img], _secure_action("hash"))
+sign_target = env.Command(os.path.join(build_dir, ".stamp_sign"),     [plain_img], _secure_action("sign"))
+signenc_tgt = env.Command(os.path.join(build_dir, ".stamp_sign_enc"), [plain_img], _secure_action("sign_enc"))
+Alias("hash",     [hash_target])
+Alias("sign",     [sign_target])
+Alias("sign_enc", [signenc_tgt])
 
 # --- Upload --- 
 def _pick_flash_image():
-    # 優先照旗標推導其實際檔名
     tgt = "flash_tz" if USE_TZ else "flash_ntz"
     if USE_WLANMP:
         tgt += "_mp"
-    cand = os.path.join(build_dir, f"{tgt}.bin")
-    if os.path.exists(cand):
-        return cand
-    # 後備：任選 build_dir 裡最新的 flash_*.bin
-    cands = sorted(glob.glob(os.path.join(build_dir, "flash_*.bin")), key=os.path.getmtime, reverse=True)
-    if cands:
-        return cands[0]
-    raise FileNotFoundError("no flash_*.bin found; build step didn't produce a flash image")
+    for name in (f"{tgt}.nn.bin", f"{tgt}.bin"):
+        p = os.path.join(build_dir, name)
+        if os.path.exists(p):
+            return p
+    raise FileNotFoundError("no flash image found; please run `pio run -t flash` or `pio run -t flash_nn` first")
 
 def upload_amebapro2(source, target, env):
     print(">>> Uploading AmebaPro2 image ...")
@@ -1078,7 +1188,7 @@ def upload_amebapro2(source, target, env):
     print(f">>> Image: {image}")
 
     # Arduino core tools 來源路徑
-    tool_dir_src = os.path.join(sdk_dir, "Arduino_package", "tools/Pro2_PG_tool _v1.4.3")
+    tool_dir_src = os.path.join(sdk_dir, "tools/Pro2_PG_tool _v1.4.3")
     if os.name == "nt":
         upload_tool = os.path.join(tool_dir_src, "uartfwburn.exe")
         flashloader_src = os.path.join(tool_dir_src, "flash_loader_nor.bin")
@@ -1112,5 +1222,5 @@ def upload_amebapro2(source, target, env):
     )
 
 # 🚩 Upload target (只負責上傳，不會在 build 時觸發)
-upload_target = env.Alias("upload", flash, upload_amebapro2)
-AlwaysBuild(upload_target) # 確保 pio run -t upload 會跑
+upload_target = env.Alias("upload", [flash_target], upload_amebapro2)
+AlwaysBuild(upload_target)
