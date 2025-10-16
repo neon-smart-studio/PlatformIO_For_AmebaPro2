@@ -1038,7 +1038,6 @@ def _plain_img_action(target, source, env):
     _safe_copy(os.path.join(build_dir, "boot.bin"), os.path.join(build_dir, "boot.bin"))
     if os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
         pass  # 已在 boot 後處理階段可能產生
-    # firmware_xx.bin -> firmware.bin
     _safe_copy(os.path.join(build_dir, "firmware_isp_iq.bin"), os.path.join(build_dir, "firmware_isp_iq.bin"))
 
     # application.symbols（從 output/ 或本地）
