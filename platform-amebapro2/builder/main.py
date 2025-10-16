@@ -5,6 +5,7 @@ import subprocess
 import re
 import struct
 import shutil
+import json
 
 MBEDTLS_VERSION = "2.28.1"
 LWIP_VERSION = "v2.1.2"
@@ -638,11 +639,12 @@ bootloader_elf = env_bootloader.Program(
     LIBS=extra_libs_bootloader,
     LINKFLAGS=[
         "-mcpu=cortex-m23", "-mthumb", "-mcmse",
+        "-L" + os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/GCC"),
         "-Wl,--whole-archive",
-        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/lib/lib/hal_pmc.a"),
         os.path.join(sdk_cmake_bootloader_dir, "output", "libboot.a"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/lib/lib/hal_pmc.a"),
         "-Wl,--no-whole-archive",
-        "-T" + os.path.join(sdk_cmake_bootloader_dir, "rtl8735b_boot_mp.ld"),
+        "-T" + os.path.join(sdk_cmake_bootloader_dir, "rtl8735b_boot_mp.ld")if MPCHIP else os.path.join(sdk_cmake_ROM_dir, "rtl8735b_boot.ld"),
         "-nostartfiles", "--specs=nosys.specs",
         "-Wl,--gc-sections", "-Wl,--warn-section-align",
         "-Wl,-Map=" + os.path.join(build_dir, "target_bootloader.map"),
@@ -751,13 +753,105 @@ def _touch_4k(path):
         with open(path, "wb") as f:
             f.write(b"\xFF"*4096)
 
-def _concat_bins(out_path:str, *parts:str):
-    with open(out_path, "wb") as w:
-        for p in parts:
-            if not p: 
-                continue
-            with open(p, "rb") as r:
-                w.write(r.read())
+# === auto collect partition keys from JSON & build mapping ===
+def _collect_valid_keys_from_json(json_path):
+    """
+    從 Realtek 的 partition JSON 蒐集 combine 可用的鍵名：
+    1) PARTITIONTABLE.images 內的名稱（例如 'PARTAB'）
+    2) 每個 record 的 type（例如 'PT_FW1', 'PT_BL_PRI', 'PT_ISP_IQ', ...）
+    """
+    keys = set()
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            j = json.load(f)
+    except Exception as e:
+        print(">>> ERR: cannot parse partition json:", json_path, e)
+        return keys
+
+    # 1) PARTITIONTABLE.images
+    try:
+        imgs = j.get("PARTITIONTABLE", {}).get("images", [])
+        for name in imgs:
+            if isinstance(name, str):
+                keys.add(name)
+    except Exception:
+        pass
+
+    # 2) PARTAB.table.records -> 用 records name 去取 type
+    try:
+        part = j.get("PARTAB", {})
+        table = part.get("table", {})
+        rec_list = table.get("records", [])
+        for rec_name in rec_list:
+            ent = part.get(rec_name, {})
+            tp = ent.get("type")
+            if isinstance(tp, str):
+                keys.add(tp)
+    except Exception:
+        pass
+
+    # 常見別名也一併加入候選（避免不同 JSON 模板差異）
+    # partition image key 常見：PT_PT / PTAB / PARTAB
+    for alias in ("PT_PT", "PTAB", "PARTAB"):
+        if alias not in keys:
+            # 不主動加進 keys（避免誤導），保留這行以便 debug 可見
+            pass
+
+    print(">>> Valid combine keys (from JSON):", sorted(keys))
+    return keys
+
+def _pick_first(candidates, available):
+    for k in candidates:
+        if k in available:
+            return k
+    return None
+
+def _build_mapping_from_json(json_path, *,
+                             wants_nn=False,
+                             include_iq=True,
+                             include_fcs_if_exist=True):
+    """
+    回傳 elf2bin combine 用的 mapping 字串，會自動依 JSON 內的實際鍵名拼接：
+    - partition:  PARTAB / PT_PT / PTAB (取 JSON 真的有的)
+    - boot:       PT_BL_PRI / BOOT / BL / BOOT_PRI
+    - firmware:   PT_FW1 / FW1 / IMG2 / FW
+    - iq:         PT_ISP_IQ / ISP_IQ
+    - nn:         PT_NN_MDL / NN_MDL
+    - fcs:        PT_FCSDATA（如果檔存在才加）
+    """
+    keys = _collect_valid_keys_from_json(json_path)
+
+    pt_key   = _pick_first(["PARTAB", "PT_PT", "PTAB"], keys)
+    boot_key = _pick_first(["PT_BL_PRI", "BOOT", "BL", "BOOT_PRI"], keys)
+    fw_key   = _pick_first(["PT_FW1", "FW1", "IMG2", "FW"], keys)
+    iq_key   = _pick_first(["PT_ISP_IQ", "ISP_IQ"], keys)
+    nn_key   = _pick_first(["PT_NN_MDL", "NN_MDL"], keys)
+    fcs_key  = _pick_first(["PT_FCSDATA"], keys)
+
+    missing = [name for name, v in (("PARTITION", pt_key),
+                                    ("BOOT", boot_key),
+                                    ("FIRMWARE", fw_key)) if v is None]
+    if missing:
+        raise RuntimeError(f"Partition JSON 少必要鍵：{missing}；可用鍵={sorted(keys)}")
+
+    parts = [f"{pt_key}=partition.bin",
+             f"{boot_key}=boot.bin",
+             f"{fw_key}=firmware.bin"]
+
+    if include_iq and iq_key:
+        parts.append(f"{iq_key}=firmware_isp_iq.bin")
+
+    if wants_nn and nn_key:
+        parts.append(f"{nn_key}=nn_model.bin")
+
+    # 只有在檔案真的存在且 JSON 有 fcs type 時才加
+    import os
+    if include_fcs_if_exist and fcs_key and os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
+        parts.append(f"{fcs_key}=boot_fcs.bin")
+
+    mapping = ",".join(parts)
+    print(">>> elf2bin combine mapping =", mapping)
+    return mapping
 
 def postprocess_bootloader_with_elf2bin():
     image_out = build_dir
@@ -997,25 +1091,31 @@ def _flash_action(target, source, env):
         tgt += "_mp"
     out = os.path.join(build_dir, f"{tgt}.bin")
 
-    if MPCHIP:
-        # 需有 partition.bin / certificate.bin / certable.bin / boot.bin / firmware.bin / firmware_isp_iq.bin
-        mapping = "PT_PT=partition.bin,CER_TBL=certable.bin,KEY_CER1=certificate.bin,PT_BL_PRI=boot.bin,PT_FW1=firmware.bin,PT_ISP_IQ=firmware_isp_iq.bin"
-        if os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
-            mapping += ",PT_FCSDATA=boot_fcs.bin"
-        _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, mapping], cwd=build_dir)
-        # OTA + checksum
+    # 先產 partition.bin（不分 MP / 非 MP 都先做）
+    _run([sdk_elf2bin_path, "convert", sdk_amebapro2_partitiontable_path,
+          "PARTITIONTABLE", "partition.bin"], cwd=build_dir)
+
+    # 自動從 JSON 組合 mapping（會抓 PARTAB / PT_FW1 / PT_BL_PRI / PT_ISP_IQ / PT_FCSDATA…）
+    mapping = _build_mapping_from_json(sdk_amebapro2_partitiontable_path,
+                                       wants_nn=False,
+                                       include_iq=True,
+                                       include_fcs_if_exist=True)
+
+    # MPCHIP 情況：有證書就一併帶上（JSON 裏不會列這兩個鍵，但 combine 支援）
+    cert_tbl = os.path.join(build_dir, "certable.bin")
+    cert_bin = os.path.join(build_dir, "certificate.bin")
+    if MPCHIP and os.path.exists(cert_tbl) and os.path.exists(cert_bin):
+        mapping = f"{mapping},CER_TBL=certable.bin,KEY_CER1=certificate.bin"
+
+    _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, mapping], cwd=build_dir)
+
+    # OTA + checksum（保持你原本流程）
+    if sdk_checksum_path:
         for src, dst in [("firmware.bin","ota.bin"),
                          ("firmware_isp_iq.bin","isp_iq_ota.bin"),
                          ("boot.bin","boot_ota.bin")]:
-            if _safe_copy(os.path.join(build_dir, src), os.path.join(build_dir, dst)) and sdk_checksum_path:
+            if _safe_copy(os.path.join(build_dir, src), os.path.join(build_dir, dst)):
                 _run([sdk_checksum_path, os.path.join(build_dir, dst)], strict=False)
-    else:
-        # 一些 JSON 會要求 user.bin，先放 4KB 空檔避免缺檔
-        _touch_4k(os.path.join(build_dir, "user.bin"))
-        
-        # 非 MPCHIP（CMake 非 MP combine）
-        _run([sdk_elf2bin_path, "convert", sdk_amebapro2_partitiontable_path, "PARTITIONTABLE", "partition.bin"], cwd=build_dir)
-        _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, "PTAB=partition.bin,BOOT=boot.bin,FW1=firmware.bin,PT_ISP_IQ=firmware_isp_iq.bin"], cwd=build_dir)
 
     print(">>> flash done:", out)
     return 0
@@ -1032,29 +1132,31 @@ def _flash_nn_action(target, source, env):
     _run([sdk_elf2bin_path, "convert", sdk_amebapro2_fwfs_nn_models_path, "FWFS", "fwfs_nn_model.bin"], cwd=build_dir)
     _run([sdk_elf2bin_path, "convert", sdk_amebapro2_nn_model_path,      "FIRMWARE", "nn_model.bin"], cwd=build_dir)
 
-    if MPCHIP:
-        # MP 路径：使用 partition JSON + 带 PT_* 键的映射
-        mapping = "PT_PT=partition.bin,CER_TBL=certable.bin,KEY_CER1=certificate.bin," \
-                  "PT_BL_PRI=boot.bin,PT_FW1=firmware.bin,PT_NN_MDL=nn_model.bin,PT_ISP_IQ=firmware_isp_iq.bin"
-        if os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
-            mapping += ",PT_FCSDATA=boot_fcs.bin"
-        _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, mapping], cwd=build_dir)
+    # 先產 partition.bin
+    _run([sdk_elf2bin_path, "convert", sdk_amebapro2_partitiontable_path,
+          "PARTITIONTABLE", "partition.bin"], cwd=build_dir)
 
-        # OTA + checksum（可选）
-        if sdk_checksum_path:
-            for src, dst in [("firmware.bin","ota.bin"),
-                             ("nn_model.bin","nn_model_ota.bin"),
-                             ("firmware_isp_iq.bin","isp_iq_ota.bin")]:
-                if _safe_copy(os.path.join(build_dir, src), os.path.join(build_dir, dst)):
-                    _run([sdk_checksum_path, os.path.join(build_dir, dst)], strict=False)
-    else:
-        # 一些 JSON 會要求 user.bin，先放 4KB 空檔避免缺檔
-        _touch_4k(os.path.join(build_dir, "user.bin"))
+    # 自動 mapping（會帶 PT_NN_MDL / PT_ISP_IQ，如果 JSON 有的話）
+    mapping = _build_mapping_from_json(sdk_amebapro2_partitiontable_path,
+                                       wants_nn=True,
+                                       include_iq=True,
+                                       include_fcs_if_exist=True)
 
-        # 非 MP 路径：先把 JSON 转成 partition.bin，然后使用非 PT_* 键
-        _run([sdk_elf2bin_path, "convert", sdk_amebapro2_partitiontable_path, "PARTITIONTABLE", "partition.bin"], cwd=build_dir)
-        mapping = "PTAB=partition.bin,BOOT=boot.bin,FW1=firmware.bin,NN_MDL=nn_model.bin,PT_ISP_IQ=firmware_isp_iq.bin"
-        _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, mapping], cwd=build_dir)
+    # MPCHIP：若有證書則帶上
+    cert_tbl = os.path.join(build_dir, "certable.bin")
+    cert_bin = os.path.join(build_dir, "certificate.bin")
+    if MPCHIP and os.path.exists(cert_tbl) and os.path.exists(cert_bin):
+        mapping = f"{mapping},CER_TBL=certable.bin,KEY_CER1=certificate.bin"
+
+    _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, mapping], cwd=build_dir)
+
+    # OTA + checksum
+    if sdk_checksum_path:
+        for src, dst in [("firmware.bin","ota.bin"),
+                         ("nn_model.bin","nn_model_ota.bin"),
+                         ("firmware_isp_iq.bin","isp_iq_ota.bin")]:
+            if _safe_copy(os.path.join(build_dir, src), os.path.join(build_dir, dst)):
+                _run([sdk_checksum_path, os.path.join(build_dir, dst)], strict=False)
 
     print(">>> flash_nn done:", out)
     return 0
