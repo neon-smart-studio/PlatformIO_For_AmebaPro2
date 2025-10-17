@@ -1116,12 +1116,12 @@ auto_model_cfg = env.Command(
 Alias("auto_model_cfg", auto_model_cfg)
 
 if PRELOAD_NN:
-    flash_nn = env.Command(
+    flash_target = env.Command(
         os.path.join(build_dir, ".stamp_flash_nn"),
         [plain_img, auto_model_cfg],
         _flash_nn_action
     )
-    Alias("flash_nn", [flash_nn])
+    Alias("flash_nn", [flash_target])
 else:
     flash_target = env.Command(
         os.path.join(build_dir, ".stamp_flash"),
