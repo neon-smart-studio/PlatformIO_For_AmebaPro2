@@ -187,19 +187,6 @@ application_src = [
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/rtl8735b_sport.c"),
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/rtl8735b_ssi.c"),
 
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_eth_nsc.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_flash_sec.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_hkdf.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_pinmux_nsc.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_rtc_nsc.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_rtc.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_trng_sec.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_wdt.c"),
-
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_flash_ns.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_spic_ns.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_wlan.c"),
-    
     os.path.join(sdk_dir, "component/soc/8735b/mbed-drivers/source/us_ticker_api.c"),
     os.path.join(sdk_dir, "component/soc/8735b/mbed-drivers/source/wait_api.c"),
     
@@ -497,6 +484,21 @@ application_src = [
     os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/MemMang/heap_4_2.c"),
 ]
 
+application_nosec_src = [
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_eth_nsc.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_flash_sec.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_hkdf.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_pinmux_nsc.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_rtc_nsc.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_rtc.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_trng_sec.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_wdt.c"),
+
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_flash_ns.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_spic_ns.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_wlan.c"),
+]
+
 if USE_TZ:
     application_src += [
         os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram_ns/app_start.c"),
@@ -686,8 +688,11 @@ bootloader_elf = env_bootloader.Program(
 
 # Build application
 env_application = env.Clone()
+env_application_nosec = env.Clone()
 set_xtools(env_application)
+set_xtools(env_application_nosec)
 apply_ini_build_flags(env_application)
+apply_ini_build_flags(env_application_nosec)
 env_application.Append(CCFLAGS=[
     "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=softfp",
     "-Os", "-fno-common", "-fmessage-length=0",
@@ -698,21 +703,47 @@ env_application.Append(CCFLAGS=[
     "-Wno-implicit-function-declaration",
     "-Wno-incompatible-pointer-types"
 ])
+env_application_nosec.Append(CCFLAGS=[
+    "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=softfp",
+    "-Os", "-fno-common", "-fmessage-length=0",
+    "-Wall", "-Wpointer-arith", "-Wstrict-prototypes",
+    "-Wundef", "-Wno-unused-function", "-Wno-unused-variable",
+    "-ffunction-sections","-fdata-sections",
+    "-Wno-int-conversion",
+    "-Wno-implicit-function-declaration",
+    "-Wno-incompatible-pointer-types"
+])
+if USE_TZ:
+    env_application_nosec.Append(CCFLAGS=[
+        "-DCONFIG_BUILD_NONSECURE=1",
+        "-DENABLE_SECCALL_PATCH=1",
+        "-DCONFIG_PLATFORM_8735B",
+        "-DCONFIG_RTL8735B_PLATFORM=1",
+    ])
+else:
+    env_application_nosec.Append(CCFLAGS=[
+        "-DCONFIG_PLATFORM_8735B",
+        "-DCONFIG_RTL8735B_PLATFORM=1",
+    ])
 env_application.Append(CCFLAGS=[
-	"-DCONFIG_BUILD_RAM=1 ",
+	"-DCONFIG_BUILD_RAM=1",
 	"-DCONFIG_PLATFORM_8735B",
 	"-DCONFIG_RTL8735B_PLATFORM=1",
 	"-DCONFIG_SYSTEM_TIME64=1",
 ])
 env_application.Append(CPPPATH=[include_dirs])
+env_application_nosec.Append(CPPPATH=[include_dirs])
 env_application.Append(CPPPATH=[proj_include])
+env_application_nosec.Append(CPPPATH=[proj_include])
 env_application.Append(CPPPATH=application_inc, CPPDEFINES=env.get("CPPDEFINES", []))
+env_application_nosec.Append(CPPPATH=application_inc, CPPDEFINES=env.get("CPPDEFINES", []))
 application_objs = _mk_objs(env_application, application_src, ".application", os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application/obj"))
+application_sec_objs = _mk_objs(env_application_nosec, application_nosec_src, ".application", os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application/obj"))
 application_proj_src = collect_sources(project_application_dir)
 application_proj_objs = _mk_objs(env_application, application_proj_src, ".application", os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application/obj"))
 application_elf = env_application.Program(
     target=os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application.elf"),
-    source=application_objs + application_proj_objs,
+    source=application_objs + application_sec_objs + application_proj_objs,
     LIBPATH=[os.path.join(sdk_cmake_application_dir, "lib/application")],
     LIBS=extra_libs_application,
     LINKFLAGS=[
