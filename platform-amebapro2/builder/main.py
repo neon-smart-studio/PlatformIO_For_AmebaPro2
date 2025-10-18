@@ -488,7 +488,7 @@ application_src = [
 
     os.path.join(sdk_dir, "component/os/freertos/cmsis_os.c"),
     os.path.join(sdk_dir, "component/os/freertos/freertos_cb.c"),
-    os.path.join(sdk_dir, "component/os/freertos/freertos_heap_rtk.c"),
+    #os.path.join(sdk_dir, "component/os/freertos/freertos_heap_rtk.c"),
     os.path.join(sdk_dir, "component/os/freertos/freertos_service.c"),
     os.path.join(sdk_dir, "component/os/freertos/freertos_wrapper.c"),
 
@@ -499,7 +499,7 @@ application_src = [
     os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/croutine.c"),
     os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/event_groups.c"),
     os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/stream_buffer.c"),
-    #os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/MemMang/heap_5.c"),
+    os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/MemMang/heap_4_2.c"),
 ]
 
 if USE_TZ:
