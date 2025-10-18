@@ -77,9 +77,8 @@ void main(void)
 {
 	/* for debug, protect rodata*/
 	//mpu_rodata_protect_init();
-	console_init();
 
-	voe_t2ff_prealloc();
+	//voe_t2ff_prealloc();
 
 #if CONFIG_WLAN
 #if ENABLE_FAST_CONNECT

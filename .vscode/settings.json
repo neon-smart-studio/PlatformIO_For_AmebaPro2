@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "atcmd_wifi.h": "c"
+        "*.embeddedhtml": "html",
+        "atcmd_wifi.h": "c",
+        "vfs.h": "c"
     }
 }

@@ -157,6 +157,8 @@ bootloader_inc = [
 application_src = [ 
     os.path.join(sdk_dir, "component/soc/8735b/app/shell/cmd_shell.c"),
     
+    os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram/mpu_config.c"),
+
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_adc.c"),
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_audio.c"),
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_clk.c"),
@@ -190,11 +192,32 @@ application_src = [
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/rtl8735b_sport.c"),
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/rtl8735b_ssi.c"),
 
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_eth_nsc.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_flash_sec.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_hkdf.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_pinmux_nsc.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_rtc_nsc.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_rtc.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_trng_sec.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_wdt.c"),
+
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_flash_ns.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_spic_ns.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_wlan.c"),
+    
     os.path.join(sdk_dir, "component/soc/8735b/mbed-drivers/source/us_ticker_api.c"),
     os.path.join(sdk_dir, "component/soc/8735b/mbed-drivers/source/wait_api.c"),
     
     os.path.join(sdk_dir, "component/soc/8735b/misc/driver/flash_api_ext.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/misc/driver/rtl_console.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/misc/driver/console_auth.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/misc/driver/low_level_io.c"),
 
+    os.path.join(sdk_dir, "component/file_system/ftl_common/ftl_common_api.c"),
+    os.path.join(sdk_dir, "component/file_system/ftl_common/ftl_nand_api.c"),
+    os.path.join(sdk_dir, "component/file_system/ftl_common/ftl_nor_api.c"),
+    os.path.join(sdk_dir, "component/file_system/system_data/system_data_api.c"),
+    
     os.path.join(sdk_dir, "component/wifi/api/wifi_conf_ext.c"),
     os.path.join(sdk_dir, "component/wifi/api/wifi_conf_inter.c"),
     #os.path.join(sdk_dir, "component/wifi/api/wifi_conf_wowlan.c"),
@@ -218,14 +241,19 @@ application_src = [
 
     os.path.join(sdk_dir, "component/wifi/wifi_fast_connect/wifi_fast_connect.c"),
 
-    #os.path.join(sdk_dir, "component/bluetooth/realtek/sdk/board/amebapro2/src/hci/bt_fwconfig.c"),
-    #os.path.join(sdk_dir, "component/bluetooth/realtek/sdk/board/amebapro2/src/hci/bt_mp_patch.c"),
-    #os.path.join(sdk_dir, "component/bluetooth/realtek/sdk/board/amebapro2/src/hci/bt_normal_patch.c"),
-    #os.path.join(sdk_dir, "component/bluetooth/realtek/sdk/board/amebapro2/src/hci/hci_board.c"),
-    #os.path.join(sdk_dir, "component/bluetooth/realtek/sdk/board/amebapro2/src/hci/hci_uart.c"),
-    #os.path.join(sdk_dir, "component/bluetooth/realtek/sdk/board/amebapro2/src/platform_utils.c"),
-    #os.path.join(sdk_dir, "component/bluetooth/realtek/sdk/board/amebapro2/src/rtk_coex.c"),
-    #os.path.join(sdk_dir, "component/bluetooth/realtek/sdk/board/amebapro2/src/trace_uart.c"),
+    os.path.join(sdk_dir, "component/bluetooth/driver/platform/amebapro2/hci/bt_mp_patch.c"),
+
+    os.path.join(sdk_dir, "component/bluetooth/driver/hci/hci_if_rtk.c"),
+    os.path.join(sdk_dir, "component/bluetooth/driver/hci/hci_process/hci_process.c"),
+    os.path.join(sdk_dir, "component/bluetooth/driver/hci/hci_process/hci_standalone.c"),
+    os.path.join(sdk_dir, "component/bluetooth/driver/hci/hci_transport/hci_h4.c"),
+
+    os.path.join(sdk_dir, "component/bluetooth/driver/platform/amebapro2/hci/bt_normal_patch.c"),
+    os.path.join(sdk_dir, "component/bluetooth/driver/platform/amebapro2/hci/hci_platform.c"),
+    os.path.join(sdk_dir, "component/bluetooth/driver/platform/amebapro2/hci/hci_uart.c"),
+    os.path.join(sdk_dir, "component/bluetooth/driver/platform/amebapro2/hci/hci_dbg.c"),
+    
+    os.path.join(sdk_dir, "component/bluetooth/os/freertos/osif_freertos.c"),
 
     os.path.join(sdk_dir, "component/ssl/ssl_func_stubs/ssl_func_stubs.c"),
     #os.path.join(sdk_dir, "component/ssl/ssl_ram_map/ssl_ram_map.c"),
@@ -455,6 +483,7 @@ application_src = [
     
     os.path.join(sdk_dir, "component/os/os_dep/device_lock.c"),
     os.path.join(sdk_dir, "component/os/os_dep/osdep_service.c"),
+    os.path.join(sdk_dir, "component/os/os_dep/timer_service.c"),
     os.path.join(sdk_dir, "component/os/os_dep/tcm_heap.c"),
 
     os.path.join(sdk_dir, "component/os/freertos/cmsis_os.c"),
@@ -475,25 +504,21 @@ application_src = [
 
 if USE_TZ:
     application_src += [
-        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_eth_nsc.c"),
-        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_flash_sec.c"),
-        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_hkdf.c"),
-        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_pinmux_nsc.c"),
-        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_rtc_nsc.c"),
-        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_rtc.c"),
-        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_trng_sec.c"),
-        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_wdt.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram_ns/app_start.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram_ns/system_ns.c"),
+        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/non_secure/port.c"),
+        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/non_secure/portasm.c"),
     ]
 else:
     application_src += [
-        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/non_secure/port.c"),
-        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/non_secure/portasm.c"),
-        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_flash_ns.c"),
-        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_spic_ns.c"),
-        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_wlan.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram_s/app_start.c"),
+        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33_NTZ/non_secure/port.c"),
+        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33_NTZ/non_secure/portasm.c"),
     ]
 
 application_inc = [
+    os.path.join(sdk_dir, "component/at_cmd"),
+
     os.path.join(sdk_dir, "component/stdlib"),
 
     os.path.join(sdk_dir, "component/soc/8735b/cmsis/cmsis-core/include"),
@@ -503,6 +528,7 @@ application_inc = [
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/include"),
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/lib/include"),
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/lib/source/ram/video"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/lib/source/ram/video/osd"),
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/lib/source/ram/video/enc/inc"),
 
     os.path.join(sdk_dir, "component/soc/8735b/app/shell"),
@@ -513,22 +539,19 @@ application_inc = [
 
     os.path.join(sdk_dir, "component/soc/8735b/mbed-drivers/include"),
 
+    os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/include"),
+
     os.path.join(sdk_dir, "component/wifi/api"),
     os.path.join(sdk_dir, "component/wifi/driver/include"),
     os.path.join(sdk_dir, "component/wifi/driver/src/osdep"),
     os.path.join(sdk_dir, "component/wifi/wifi_fast_connect"),
+    
+    os.path.join(sdk_dir, "component/file_system/ftl_common"),
 
-    #os.path.join(sdk_dir, "component/common/bluetooth/realtek/sdk/board/amebapro2/lib"),
-    #os.path.join(sdk_dir, "component/common/bluetooth/realtek/sdk/board/amebapro2/src"),
-    #os.path.join(sdk_dir, "component/common/bluetooth/realtek/sdk/board/amebapro2/src/vendor_cmd"),
-
-    #os.path.join(sdk_dir, "component/common/bluetooth/realtek/sdk/board/common/inc"),
-
-    #os.path.join(sdk_dir, "component/common/bluetooth/realtek/sdk/inc/os"),
-    #os.path.join(sdk_dir, "component/common/bluetooth/realtek/sdk/inc/platform"),
-    #os.path.join(sdk_dir, "component/common/bluetooth/realtek/sdk/inc/stack"),
-    #os.path.join(sdk_dir, "component/common/bluetooth/realtek/sdk/inc/bluetooth/gap"),
-    #os.path.join(sdk_dir, "component/common/bluetooth/realtek/sdk/inc/bluetooth/profile"),
+    os.path.join(sdk_dir, "component/bluetooth/os/osif"),
+    os.path.join(sdk_dir, "component/bluetooth/driver"),
+    os.path.join(sdk_dir, "component/bluetooth/driver/inc"),
+    os.path.join(sdk_dir, "component/bluetooth/driver/platform/amebapro2/inc"),
     
     os.path.join(sdk_dir, "component/lwip/api"),
     os.path.join(sdk_dir, f"component/lwip/lwip_{LWIP_VERSION}/port/realtek"),
@@ -541,14 +564,18 @@ application_inc = [
 
     os.path.join(sdk_dir, "component/network"),
 
+    os.path.join(sdk_dir, "component/file_system/fwfs"),
     os.path.join(sdk_dir, "component/file_system/system_data"),
 
     os.path.join(sdk_dir, "component/mbed/api"),
     os.path.join(sdk_dir, "component/mbed/hal"),
     os.path.join(sdk_dir, "component/mbed/hal_ext"),
     os.path.join(sdk_dir, "component/mbed/targets/hal/rtl8735b"),
-
-    os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/include"),
+    
+    os.path.join(sdk_dir, "component/media/rtp_codec"),
+    
+    os.path.join(sdk_dir, "component/video/osd2"),
+    os.path.join(sdk_dir, "component/video/driver/RTL8735B"),
 
     os.path.join(sdk_dir, "component/os/os_dep/include"),
     os.path.join(sdk_dir, "component/os/freertos"),
@@ -559,7 +586,7 @@ application_inc = [
 
 # .a libraries
 extra_libs_bootloader = []
-extra_libs_application = [] 
+extra_libs_application = ["soc_ns" if USE_TZ else "soc_ntz", "wlan_mp" if USE_WLANMP else "wlan", "wps"] 
 
 def norm_unix(path):
     return path.replace("\\", "/")
@@ -616,7 +643,7 @@ env_bootloader = env.Clone()
 set_xtools(env_bootloader)
 apply_ini_build_flags(env_bootloader)
 env_bootloader.Append(CCFLAGS=[
-    "-mcpu=cortex-m23", "-mthumb", "-mcmse",
+    "-mcpu=cortex-m23", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=softfp",
     "-Os", "-fno-common", "-fmessage-length=0",
     "-Wall", "-Wpointer-arith", "-Wstrict-prototypes",
     "-Wundef", "-Wno-unused-function", "-Wno-unused-variable",
@@ -628,7 +655,6 @@ env_bootloader.Append(CCFLAGS=[
 env_bootloader.Append(CPPPATH=[include_dirs])
 env_bootloader.Append(CPPPATH=[proj_include])
 env_bootloader.Append(CCFLAGS=[
-    "-D__ARM_FEATURE_CMSE=3",
 	"-DCONFIG_BUILD_BOOT=1",
 	"-DCONFIG_BUILD_RAM=1 ",
 	"-DCONFIG_BUILD_LIB=1 ",
@@ -643,7 +669,7 @@ bootloader_elf = env_bootloader.Program(
     LIBPATH=[os.path.join(sdk_cmake_ROM_dir)],
     LIBS=extra_libs_bootloader,
     LINKFLAGS=[
-        "-mcpu=cortex-m23", "-mthumb", "-mcmse",
+        "-mcpu=cortex-m23", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=softfp",
         "-L" + os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/GCC"),
         "-Wl,--whole-archive",
         os.path.join(sdk_cmake_bootloader_dir, "output", "libboot.a"),
@@ -668,7 +694,7 @@ env_application = env.Clone()
 set_xtools(env_application)
 apply_ini_build_flags(env_application)
 env_application.Append(CCFLAGS=[
-    "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=hard",
+    "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=softfp",
     "-Os", "-fno-common", "-fmessage-length=0",
     "-Wall", "-Wpointer-arith", "-Wstrict-prototypes",
     "-Wundef", "-Wno-unused-function", "-Wno-unused-variable",
@@ -683,11 +709,6 @@ env_application.Append(CCFLAGS=[
 	"-DCONFIG_RTL8735B_PLATFORM=1",
 	"-DCONFIG_SYSTEM_TIME64=1",
 ])
-if USE_TZ:
-    env_application.Append(CCFLAGS=[f"-DCONFIG_BUILD_SECURE=1"])
-else:
-    env_application.Append(CCFLAGS=[f"-DCONFIG_BUILD_NONSECURE=1"])
-    env_application.Append(CCFLAGS=[f"-DENABLE_SECCALL_PATCH"])
 env_application.Append(CPPPATH=[include_dirs])
 env_application.Append(CPPPATH=[proj_include])
 env_application.Append(CPPPATH=application_inc, CPPDEFINES=env.get("CPPDEFINES", []))
@@ -700,9 +721,10 @@ application_elf = env_application.Program(
     LIBPATH=[os.path.join(sdk_cmake_application_dir, "lib/application")],
     LIBS=extra_libs_application,
     LINKFLAGS=[
-        "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=hard",
+        "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=softfp",
         "-L" + sdk_cmake_ROM_dir,
-        "-T" + os.path.join(sdk_cmake_application_dir, "rtl8735b_ram_s.ld" if USE_TZ else "rtl8735b_ram.ld"),
+        "-L" + os.path.join(sdk_cmake_application_dir, "output"),
+        "-T" + os.path.join(sdk_cmake_application_dir, "rtl8735b_ram_ns.ld" if USE_TZ else "rtl8735b_ram.ld"),
         "-nostartfiles", "--specs=nosys.specs",
         "-Wl,--gc-sections", "-Wl,--warn-section-align",
         "-Wl,-Map=" + os.path.join(build_dir, "target_application.map"),
