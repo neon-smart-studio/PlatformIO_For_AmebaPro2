@@ -34,11 +34,6 @@ USE_TZ = int(env.GetProjectOption("trustzone") or
              ("TRUSTZONE" in (env.get("CPPDEFINES") or []) and "1") or
              0)
 
-SECURE_BOOT = int(env.GetProjectOption("secure_boot") or
-                  os.environ.get("CONFIG_SECURE_BOOT", "0") or
-                  ("SECURE_BOOT" in (env.get("CPPDEFINES") or []) and "1") or
-                  0)
-
 USE_WLANMP = int(env.GetProjectOption("wlanmp") or
              os.environ.get("CONFIG_USE_WLANMP", "0") or
              ("USE_WLANMP" in (env.get("CPPDEFINES") or []) and "1") or
@@ -998,7 +993,7 @@ def _flash_action(target, source, env):
     mapping = "PT_PT=partition.bin,PT_BL_PRI=boot.bin,PT_FW1=firmware.bin,PT_ISP_IQ=firmware_isp_iq.bin"
     if os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
         mapping += ",PT_FCSDATA=boot_fcs.bin"
-    if SECURE_BOOT:
+    if USE_TZ:
         mapping += ",CER_TBL=certable.bin,KEY_CER1=certificate.bin"
 
     _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, mapping], cwd=build_dir)
@@ -1033,7 +1028,7 @@ def _flash_nn_action(target, source, env):
     mapping = "PT_PT=partition.bin,PT_BL_PRI=boot.bin,PT_FW1=firmware.bin,PT_NN_MDL=nn_model.bin,PT_ISP_IQ=firmware_isp_iq.bin"
     if os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
         mapping += ",PT_FCSDATA=boot_fcs.bin"
-    if SECURE_BOOT:
+    if USE_TZ:
         mapping += ",CER_TBL=certable.bin,KEY_CER1=certificate.bin"
 
     _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, mapping], cwd=build_dir)
