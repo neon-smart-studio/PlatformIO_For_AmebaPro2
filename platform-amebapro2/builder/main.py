@@ -113,6 +113,8 @@ build_dir = os.path.join(env.subst("$BUILD_DIR"), "amebapro2")
 if not os.path.exists(build_dir): 
     os.makedirs(build_dir) 
 
+import_lib_o = os.path.join(build_dir, "import_lib.o")
+
 # bootfcs sources/inc 
 bootfcs_src = [os.path.join(sdk_dir, "component/video/driver/RTL8735B/video_user_boot.c")]
 
@@ -152,8 +154,6 @@ bootloader_inc = [
 application_src = [ 
     os.path.join(sdk_dir, "component/soc/8735b/app/shell/cmd_shell.c"),
     
-    os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram/mpu_config.c"),
-
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_adc.c"),
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_audio.c"),
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_clk.c"),
@@ -187,6 +187,9 @@ application_src = [
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/rtl8735b_sport.c"),
     os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/rtl8735b_ssi.c"),
 
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_flash_ns.c"),
+    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_spic_ns.c"),
+    
     os.path.join(sdk_dir, "component/soc/8735b/mbed-drivers/source/us_ticker_api.c"),
     os.path.join(sdk_dir, "component/soc/8735b/mbed-drivers/source/wait_api.c"),
     
@@ -484,33 +487,84 @@ application_src = [
     os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/MemMang/heap_4_2.c"),
 ]
 
-application_nosec_src = [
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_eth_nsc.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_flash_sec.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_hkdf.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_pinmux_nsc.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_rtc_nsc.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_rtc.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_trng_sec.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_wdt.c"),
-
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_flash_ns.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_spic_ns.c"),
-    os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_ns/hal_wlan.c"),
-]
-
 if USE_TZ:
     application_src += [
         os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram_ns/app_start.c"),
         os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram_ns/system_ns.c"),
+
         os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/non_secure/port.c"),
         os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/non_secure/portasm.c"),
     ]
 else:
     application_src += [
-        os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram_s/app_start.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_flash_sec.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_hkdf.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_pinmux_nsc.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_wdt.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_rtc.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_trng_sec.c"),
+
         os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33_NTZ/non_secure/port.c"),
         os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33_NTZ/non_secure/portasm.c"),
+
+        os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram/mpu_config.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram_s/app_start.c"),
+    ]
+
+if USE_TZ:
+    application_sec_src = [
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_hkdf.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_wdt.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_rtc.c"),
+	
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_flash_sec.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_pinmux_nsc.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_rtc_nsc.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram_s/hal_trng_sec.c"),
+        
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_adc.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_comp.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_crypto.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_dram_init.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_dram_scan.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_eddsa.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_eth.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_flash.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_gdma.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_gpio.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_i2c.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_i2s.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_pwm.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_rsa.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_sdhost.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_ssi.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_snand.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_spic.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_timer.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_trng.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/hal_uart.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/rtl8735b_i2s.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/rtl8735b_sgpio.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/rtl8735b_sport.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/source/ram/rtl8735b_ssi.c"),
+
+        os.path.join(sdk_dir, "component/mbed/targets/hal/rtl8735b/crypto_api.c"),
+        os.path.join(sdk_dir, "component/mbed/targets/hal/rtl8735b/flash_api.c"),
+        os.path.join(sdk_dir, "component/mbed/targets/hal/rtl8735b/efuse_api.c"),
+        
+        #os.path.join(sdk_dir, f"component/ssl/mbedtls-{MBEDTLS_VERSION}/library_s/mbedtls_nsc.c"),
+        #os.path.join(sdk_dir, f"component/ssl/mbedtls-{MBEDTLS_VERSION}/library_s/mbedtls_ext_nsc.c"),
+        
+        os.path.join(sdk_dir, "component/ssl/ssl_func_stubs/ssl_func_stubs.c"),
+        os.path.join(sdk_dir, "component/ssl/ssl_ram_map/rom/rom_ssl_ram_map.c"),
+        
+        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/secure/secure_context.c"),
+        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/secure/secure_context_port.c"),
+        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/secure/secure_heap.c"),
+        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/secure/secure_init.c"),
+        
+        os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram/mpu_config.c"),
+        os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram_s/app_start.c"),
     ]
 
 application_inc = [
@@ -577,13 +631,23 @@ application_inc = [
     os.path.join(sdk_dir, "component/os/os_dep/include"),
     os.path.join(sdk_dir, "component/os/freertos"),
     os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/include"),
-    os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/non_secure"),
-    os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/secure"),
 ] 
+
+if USE_TZ:
+    application_inc += [
+        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/non_secure"),
+        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/secure"),
+    ]
+else:
+    application_inc += [
+        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33_NTZ/non_secure"),
+        os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33_NTZ/secure"),
+    ]
 
 # .a libraries
 extra_libs_bootloader = []
 extra_libs_application = ["soc_ns" if USE_TZ else "soc_ntz", "wlan_mp" if USE_WLANMP else "wlan", "wps"] 
+extra_libs_application_sec = []
 
 def norm_unix(path):
     return path.replace("\\", "/")
@@ -686,13 +750,61 @@ bootloader_elf = env_bootloader.Program(
     ]
 )
 
+if USE_TZ:
+    env_application_sec = env.Clone()
+    set_xtools(env_application_sec)
+    apply_ini_build_flags(env_application_sec)
+    env_application_sec.Append(CCFLAGS=[
+        "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=softfp",
+        "-Os", "-fno-common", "-fmessage-length=0",
+        "-Wall", "-Wpointer-arith", "-Wstrict-prototypes",
+        "-Wundef", "-Wno-unused-function", "-Wno-unused-variable",
+        "-ffunction-sections","-fdata-sections",
+        "-Wno-int-conversion",
+        "-Wno-implicit-function-declaration",
+        "-Wno-incompatible-pointer-types"
+    ])
+    env_application_sec.Append(CCFLAGS=[
+        "-DCONFIG_BUILD_SECURE=1",
+        "-DCONFIG_PLATFORM_8735B",
+        "-DCONFIG_RTL8735B_PLATFORM=1",
+    ])
+
+    env_application_sec.Append(CPPPATH=[include_dirs])
+    env_application_sec.Append(CPPPATH=[proj_include])
+    env_application_sec.Append(CPPPATH=application_inc, CPPDEFINES=env.get("CPPDEFINES", []))
+    application_sec_objs = _mk_objs(env_application_sec, application_sec_src, ".application.s", os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application/obj"))
+    application_sec_elf = env_application_sec.Program(
+        target=os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application.s.elf"),
+        source=application_sec_objs,
+        LIBPATH=[os.path.join(sdk_cmake_application_dir, "lib/application")],
+        LIBS=extra_libs_application_sec,
+        LINKFLAGS=[
+            "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=softfp",
+            "-L" + sdk_cmake_ROM_dir,
+            "-L" + os.path.join(sdk_cmake_application_dir, "output"),
+            "-T" + os.path.join(sdk_cmake_application_dir, "rtl8735b_ram_s.ld"),
+            "-Wl,--whole-archive",
+            os.path.join(sdk_cmake_application_dir, "output", "libsoc_s.a"),
+            os.path.join(sdk_dir, "component/soc/8735b/fwlib/rtl8735b/lib/lib/hal_pmc.a"),
+            "-Wl,--no-whole-archive",
+            "-nostartfiles", "--specs=nosys.specs",
+            "-Wl,--gc-sections", "-Wl,--warn-section-align",
+            "-Wl,-Map=" + os.path.join(build_dir, "target_application.map"),
+            "-Wl,--cref", "-Wl,--no-enum-size-warning",
+            "-Wl,--cmse-implib",
+            f"-Wl,--out-implib={import_lib_o}",
+        ]
+    )
+    def _post_secure_copy(target, source, env):
+        dst = os.path.join(build_dir, "application.s.axf")
+        shutil.copy2(str(target[0]), dst)
+    env_application_sec.AddPostAction(application_sec_elf, _post_secure_copy)
+    
 # Build application
 env_application = env.Clone()
-env_application_nosec = env.Clone()
 set_xtools(env_application)
-set_xtools(env_application_nosec)
 apply_ini_build_flags(env_application)
-apply_ini_build_flags(env_application_nosec)
 env_application.Append(CCFLAGS=[
     "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=softfp",
     "-Os", "-fno-common", "-fmessage-length=0",
@@ -703,60 +815,101 @@ env_application.Append(CCFLAGS=[
     "-Wno-implicit-function-declaration",
     "-Wno-incompatible-pointer-types"
 ])
-env_application_nosec.Append(CCFLAGS=[
-    "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=softfp",
-    "-Os", "-fno-common", "-fmessage-length=0",
-    "-Wall", "-Wpointer-arith", "-Wstrict-prototypes",
-    "-Wundef", "-Wno-unused-function", "-Wno-unused-variable",
-    "-ffunction-sections","-fdata-sections",
-    "-Wno-int-conversion",
-    "-Wno-implicit-function-declaration",
-    "-Wno-incompatible-pointer-types"
-])
-if USE_TZ:
-    env_application_nosec.Append(CCFLAGS=[
-        "-DCONFIG_BUILD_NONSECURE=1",
-        "-DENABLE_SECCALL_PATCH=1",
-        "-DCONFIG_PLATFORM_8735B",
-        "-DCONFIG_RTL8735B_PLATFORM=1",
-    ])
-else:
-    env_application_nosec.Append(CCFLAGS=[
-        "-DCONFIG_PLATFORM_8735B",
-        "-DCONFIG_RTL8735B_PLATFORM=1",
-    ])
 env_application.Append(CCFLAGS=[
 	"-DCONFIG_BUILD_RAM=1",
 	"-DCONFIG_PLATFORM_8735B",
 	"-DCONFIG_RTL8735B_PLATFORM=1",
 	"-DCONFIG_SYSTEM_TIME64=1",
 ])
+if USE_TZ:
+    env_application.Append(CCFLAGS=["-DCONFIG_BUILD_NONSECURE=1"])
+    env_application.Append(CCFLAGS=["-DENABLE_SECCALL_PATCH=1"])
 env_application.Append(CPPPATH=[include_dirs])
-env_application_nosec.Append(CPPPATH=[include_dirs])
 env_application.Append(CPPPATH=[proj_include])
-env_application_nosec.Append(CPPPATH=[proj_include])
 env_application.Append(CPPPATH=application_inc, CPPDEFINES=env.get("CPPDEFINES", []))
-env_application_nosec.Append(CPPPATH=application_inc, CPPDEFINES=env.get("CPPDEFINES", []))
 application_objs = _mk_objs(env_application, application_src, ".application", os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application/obj"))
-application_sec_objs = _mk_objs(env_application_nosec, application_nosec_src, ".application", os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application/obj"))
 application_proj_src = collect_sources(project_application_dir)
 application_proj_objs = _mk_objs(env_application, application_proj_src, ".application", os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application/obj"))
-application_elf = env_application.Program(
-    target=os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application.elf"),
-    source=application_objs + application_sec_objs + application_proj_objs,
-    LIBPATH=[os.path.join(sdk_cmake_application_dir, "lib/application")],
-    LIBS=extra_libs_application,
-    LINKFLAGS=[
-        "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=softfp",
-        "-L" + sdk_cmake_ROM_dir,
-        "-L" + os.path.join(sdk_cmake_application_dir, "output"),
-        "-T" + os.path.join(sdk_cmake_application_dir, "rtl8735b_ram_ns.ld" if USE_TZ else "rtl8735b_ram.ld"),
-        "-nostartfiles", "--specs=nosys.specs",
-        "-Wl,--gc-sections", "-Wl,--warn-section-align",
-        "-Wl,-Map=" + os.path.join(build_dir, "target_application.map"),
-        "-Wl,--cref", "-Wl,--no-enum-size-warning",
+if USE_TZ:
+    WRAPS_TZ = [
+        "-Wl,-wrap,hal_crypto_engine_init_platform",
+        "-Wl,-wrap,hal_pinmux_register",
+        "-Wl,-wrap,hal_pinmux_unregister",
+        "-Wl,-wrap,hal_otp_byte_rd_syss",
+        "-Wl,-wrap,hal_otp_byte_wr_syss",
+        "-Wl,-wrap,hal_sys_get_video_info",
+        "-Wl,-wrap,hal_sys_peripheral_en",
+        "-Wl,-wrap,hal_sys_set_clk",
+        "-Wl,-wrap,hal_sys_get_clk",
+        "-Wl,-wrap,hal_sys_lxbus_shared_en",
+        "-Wl,-wrap,bt_power_on",
+        "-Wl,-wrap,hal_pll_98p304_ctrl",
+        "-Wl,-wrap,hal_pll_45p158_ctrl",
+        "-Wl,-wrap,hal_osc4m_cal",
+        "-Wl,-wrap,hal_sdm_32k_enable",
+        "-Wl,-wrap,hal_sys_get_rom_ver",
+        "-Wl,-wrap,hal_otp_init",
+        "-Wl,-wrap,hal_otp_sb_key_get",
+        "-Wl,-wrap,hal_otp_sb_key_write",
+        "-Wl,-wrap,hal_otp_ssz_lock",
+        "-Wl,-wrap,hal_sys_spic_boot_finish",
+        "-Wl,-wrap,hal_sys_spic_ddr_ctrl",
+        "-Wl,-wrap,hal_sys_spic_phy_en",
+        "-Wl,-wrap,hal_sys_spic_set_phy_delay",
+        "-Wl,-wrap,hal_sys_spic_read_phy_delay",
+        "-Wl,-wrap,hal_sys_bt_uart_mux",
+        "-Wl,-wrap,hal_pwm_clock_init",
+        "-Wl,-wrap,hal_pwm_clk_sel",
+        "-Wl,-wrap,hal_timer_clock_init",
+        "-Wl,-wrap,hal_timer_group_sclk_sel",
+        "-Wl,-wrap,hal_sys_get_ld_fw_idx",
+        "-Wl,-wrap,hal_sys_get_boot_select",
+        "-Wl,-wrap,hal_sys_dbg_port_cfg",
+        "-Wl,-wrap,hal_otp_byte_rd_sys",
+        "-Wl,-wrap,hal_crypto_engine_init_s4ns",
+        "-Wl,-wrap,hal_sys_get_chip_id",
+        "-Wl,-wrap,hal_sys_get_video_img_ld_offset",
+        "-Wl,-wrap,hal_sys_cust_pws_val_ctrl",
+        "-Wl,-wrap,hal_32k_s1_sel",
+        "-Wl,-wrap,hal_xtal_divider_enable",
+        "-Wl,-wrap,hal_sys_clear_prefw_boot_fail_sts",
     ]
-)
+    env_application.Append(LINKFLAGS=WRAPS_TZ)
+    
+if USE_TZ:
+    application_elf = env_application.Program(
+        target=os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application.elf"),
+        source=application_objs + application_proj_objs + [import_lib_o],
+        LIBPATH=[os.path.join(sdk_cmake_application_dir, "lib/application")],
+        LIBS=extra_libs_application,
+        LINKFLAGS=[
+            "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=softfp",
+            "-L" + sdk_cmake_ROM_dir,
+            "-L" + os.path.join(sdk_cmake_application_dir, "output"),
+            "-T" + os.path.join(sdk_cmake_application_dir, "rtl8735b_ram_ns.ld" if USE_TZ else "rtl8735b_ram.ld"),
+            "-nostartfiles", "--specs=nosys.specs",
+            "-Wl,--gc-sections", "-Wl,--warn-section-align",
+            "-Wl,-Map=" + os.path.join(build_dir, "target_application.map"),
+            "-Wl,--cref", "-Wl,--no-enum-size-warning",
+        ]
+    )
+else:
+    application_elf = env_application.Program(
+        target=os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application.elf"),
+        source=application_objs + application_proj_objs,
+        LIBPATH=[os.path.join(sdk_cmake_application_dir, "lib/application")],
+        LIBS=extra_libs_application,
+        LINKFLAGS=[
+            "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=softfp",
+            "-L" + sdk_cmake_ROM_dir,
+            "-L" + os.path.join(sdk_cmake_application_dir, "output"),
+            "-T" + os.path.join(sdk_cmake_application_dir, "rtl8735b_ram_ns.ld" if USE_TZ else "rtl8735b_ram.ld"),
+            "-nostartfiles", "--specs=nosys.specs",
+            "-Wl,--gc-sections", "-Wl,--warn-section-align",
+            "-Wl,-Map=" + os.path.join(build_dir, "target_application.map"),
+            "-Wl,--cref", "-Wl,--no-enum-size-warning",
+        ]
+    )
 
 def _run(cmd, strict=True, cwd=None):
     import subprocess, shlex
@@ -929,11 +1082,20 @@ bootloader_all_bin = env.Command(
 )
 
 # 生成 application 產物（image2 為必要；TZ=ON 才做 image3）
-application_all_bin = env.Command(
-    os.path.join(build_dir, "application.bin"),
-    application_elf,
-    _post_application_image_action
-)
+if USE_TZ:
+    env.Depends(application_elf, application_sec_elf)
+
+    application_all_bin = env.Command(
+        os.path.join(build_dir, "application.bin"),
+        [application_elf, application_sec_elf],
+        _post_application_image_action
+    )
+else:
+    application_all_bin = env.Command(
+        os.path.join(build_dir, "application.bin"),
+        application_elf,
+        _post_application_image_action
+    )
 
 def _keygen_action(target, source, env):
     print(">>> keygen action...")
