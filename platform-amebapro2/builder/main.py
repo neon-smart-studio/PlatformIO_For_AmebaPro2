@@ -485,6 +485,8 @@ application_src = [
     os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/event_groups.c"),
     os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/stream_buffer.c"),
     os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/MemMang/heap_4_2.c"),
+    
+    os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram/mpu_config.c"),
 ]
 
 if USE_TZ:
@@ -507,7 +509,6 @@ else:
         os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33_NTZ/non_secure/port.c"),
         os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33_NTZ/non_secure/portasm.c"),
 
-        os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram/mpu_config.c"),
         os.path.join(sdk_dir, "component/soc/8735b/cmsis/rtl8735b/source/ram_s/app_start.c"),
     ]
 
@@ -766,8 +767,10 @@ if USE_TZ:
     ])
     env_application_sec.Append(CCFLAGS=[
         "-DCONFIG_BUILD_SECURE=1",
+        "-DCONFIG_BUILD_RAM=1",
+        "-DCONFIG_BUILD_LIB=1",
         "-DCONFIG_PLATFORM_8735B",
-        "-DCONFIG_RTL8735B_PLATFORM=1",
+        "-DCONFIG_RTL8735B_PLATFORM=1"
     ])
 
     env_application_sec.Append(CPPPATH=[include_dirs])
@@ -886,7 +889,7 @@ if USE_TZ:
             "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=softfp",
             "-L" + sdk_cmake_ROM_dir,
             "-L" + os.path.join(sdk_cmake_application_dir, "output"),
-            "-T" + os.path.join(sdk_cmake_application_dir, "rtl8735b_ram_ns.ld" if USE_TZ else "rtl8735b_ram.ld"),
+            "-T" + os.path.join(sdk_cmake_application_dir, "rtl8735b_ram_ns.ld"),
             "-nostartfiles", "--specs=nosys.specs",
             "-Wl,--gc-sections", "-Wl,--warn-section-align",
             "-Wl,-Map=" + os.path.join(build_dir, "target_application.map"),
@@ -903,7 +906,7 @@ else:
             "-mcpu=cortex-m33", "-mthumb", "-mcmse", "-mfpu=fpv5-sp-d16", "-mfloat-abi=softfp",
             "-L" + sdk_cmake_ROM_dir,
             "-L" + os.path.join(sdk_cmake_application_dir, "output"),
-            "-T" + os.path.join(sdk_cmake_application_dir, "rtl8735b_ram_ns.ld" if USE_TZ else "rtl8735b_ram.ld"),
+            "-T" + os.path.join(sdk_cmake_application_dir, "rtl8735b_ram.ld"),
             "-nostartfiles", "--specs=nosys.specs",
             "-Wl,--gc-sections", "-Wl,--warn-section-align",
             "-Wl,-Map=" + os.path.join(build_dir, "target_application.map"),
