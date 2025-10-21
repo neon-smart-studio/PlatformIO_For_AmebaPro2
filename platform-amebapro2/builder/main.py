@@ -62,14 +62,15 @@ for f in flags:
             path = os.path.join(env.subst("$PROJECT_DIR"), path)
         include_dirs.append(path)
 
-project_application_dir   = os.path.join(env.subst("$PROJECT_DIR"), "src")
-project_include_dir       = os.path.join(env.subst("$PROJECT_DIR"), "include")
-project_models_dir        = os.path.join(env.subst("$PROJECT_DIR"), "models")
-sdk_project_root_dir      = os.path.join(sdk_dir, "project", "realtek_amebapro2_v0_example/GCC-RELEASE")
-sdk_cmake_ROM_dir         = os.path.join(sdk_project_root_dir, "ROM/GCC")
-sdk_cmake_bootloader_dir  = os.path.join(sdk_project_root_dir, "bootloader")
-sdk_cmake_application_dir = os.path.join(sdk_project_root_dir, "application")
-sdk_mp_dir                = os.path.join(sdk_project_root_dir, "mp")
+project_application_dir      = os.path.join(env.subst("$PROJECT_DIR"), "src")
+project_application_sec_dir  = os.path.join(env.subst("$PROJECT_DIR"), "src_s")
+project_include_dir          = os.path.join(env.subst("$PROJECT_DIR"), "include")
+project_models_dir           = os.path.join(env.subst("$PROJECT_DIR"), "models")
+sdk_project_root_dir         = os.path.join(sdk_dir, "project", "realtek_amebapro2_v0_example/GCC-RELEASE")
+sdk_cmake_ROM_dir            = os.path.join(sdk_project_root_dir, "ROM/GCC")
+sdk_cmake_bootloader_dir     = os.path.join(sdk_project_root_dir, "bootloader")
+sdk_cmake_application_dir    = os.path.join(sdk_project_root_dir, "application")
+sdk_mp_dir                   = os.path.join(sdk_project_root_dir, "mp")
 
 # 複製 json（跟 CMake 同一路徑）
 sdk_key_cfg_path                       = os.path.join(sdk_mp_dir, "key_cfg.json")
@@ -558,6 +559,8 @@ if USE_TZ:
         
         os.path.join(sdk_dir, "component/ssl/ssl_func_stubs/ssl_func_stubs.c"),
         os.path.join(sdk_dir, "component/ssl/ssl_ram_map/rom/rom_ssl_ram_map.c"),
+
+        os.path.join(sdk_dir, "component/bluetooth/driver/platform/amebapro2/hci/hci_platform_s.c"),
         
         os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/secure/secure_context.c"),
         os.path.join(sdk_dir, "component/os/freertos/freertos_v202210.01/Source/portable/GCC/ARM_CM33/secure/secure_context_port.c"),
@@ -772,14 +775,15 @@ if USE_TZ:
         "-DCONFIG_PLATFORM_8735B",
         "-DCONFIG_RTL8735B_PLATFORM=1"
     ])
-
     env_application_sec.Append(CPPPATH=[include_dirs])
     env_application_sec.Append(CPPPATH=[proj_include])
     env_application_sec.Append(CPPPATH=application_inc, CPPDEFINES=env.get("CPPDEFINES", []))
     application_sec_objs = _mk_objs(env_application_sec, application_sec_src, ".application.s", os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application/obj"))
+    application_sec_proj_src = collect_sources(project_application_sec_dir)
+    application_sec_proj_objs = _mk_objs(env_application_sec, application_sec_proj_src, ".application.s", os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application/obj"))
     application_sec_elf = env_application_sec.Program(
         target=os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application.s.elf"),
-        source=application_sec_objs,
+        source=application_sec_objs + application_sec_proj_objs,
         LIBPATH=[os.path.join(sdk_cmake_application_dir, "lib/application")],
         LIBS=extra_libs_application_sec,
         LINKFLAGS=[
@@ -799,10 +803,6 @@ if USE_TZ:
             f"-Wl,--out-implib={import_lib_o}",
         ]
     )
-    def _post_secure_copy(target, source, env):
-        dst = os.path.join(build_dir, "application.s.axf")
-        shutil.copy2(str(target[0]), dst)
-    env_application_sec.AddPostAction(application_sec_elf, _post_secure_copy)
     
 # Build application
 env_application = env.Clone()
@@ -833,7 +833,6 @@ env_application.Append(CPPPATH=application_inc, CPPDEFINES=env.get("CPPDEFINES",
 application_objs = _mk_objs(env_application, application_src, ".application", os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application/obj"))
 application_proj_src = collect_sources(project_application_dir)
 application_proj_objs = _mk_objs(env_application, application_proj_src, ".application", os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application/obj"))
-
 if USE_TZ:
     application_elf = env_application.Program(
         target=os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application.elf"),
@@ -1040,6 +1039,19 @@ def postprocess_application_with_elf2bin():
     axf_filename = "application.ns.axf" if USE_TZ else "application.ntz.axf"
     shutil.copyfile(app_elf, os.path.join(image_out, axf_filename))
 
+    # === 若是 TrustZone，直接複製 secure ELF 檔 ===
+    if USE_TZ:
+        sec_elf = os.path.join(build_dir, "application.s.elf")
+        dst = os.path.join(build_dir, "application.s.axf")
+        if os.path.exists(sec_elf):
+            try:
+                shutil.copy2(sec_elf, dst)
+                print(f">>> copied secure ELF: {sec_elf} → {dst}")
+            except Exception as e:
+                print(f">>> WARN: failed to copy secure ELF: {e}")
+        else:
+            print(f">>> WARN: secure ELF not found: {sec_elf}")
+
     # 轉成 firmware_tz.bin / firmware_ntz.bin
     post_json = sdk_amebapro2_application_path
     _run([sdk_elf2bin_path, "convert", post_json, "FIRMWARE", "firmware.bin"], cwd=image_out)
@@ -1083,6 +1095,7 @@ bootloader_all_bin = env.Command(
 # 生成 application 產物（image2 為必要；TZ=ON 才做 image3）
 if USE_TZ:
     env.Depends(application_elf, application_sec_elf)
+    env.Depends(import_lib_o, application_sec_elf)
 
     application_all_bin = env.Command(
         os.path.join(build_dir, "application.bin"),
@@ -1251,7 +1264,7 @@ def _secure_action(mode):
             mapping = "PT_PT=partition_hashed.bin,CER_TBL=certable.bin,KEY_CER1=certificate_signed.bin,PT_BL_PRI=boot_hashed.bin,PT_FW1=firmware_hashed.bin,PT_ISP_IQ=firmware_isp_iq.bin"
             if os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
                 mapping += ",PT_FCSDATA=boot_fcs.bin"
-            _run([sdk_elf2bin_path, "combine", "amebapro2_partitiontable.json", out, mapping], cwd=build_dir)
+            _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, mapping], cwd=build_dir)
             if sdk_checksum_path:
                 if _safe_copy(os.path.join(build_dir, "firmware_hashed.bin"), os.path.join(build_dir, "ota.bin")):
                     _run([sdk_checksum_path, os.path.join(build_dir, "ota.bin")], strict=False)
@@ -1266,7 +1279,7 @@ def _secure_action(mode):
             mapping = "PT_PT=partition_signed.bin,CER_TBL=certable.bin,KEY_CER1=certificate_signed.bin,PT_BL_PRI=boot_signed.bin,PT_FW1=firmware_signed.bin,PT_ISP_IQ=firmware_isp_iq.bin"
             if os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
                 mapping += ",PT_FCSDATA=boot_fcs.bin"
-            _run([sdk_elf2bin_path, "combine", "amebapro2_partitiontable.json", out, mapping], cwd=build_dir)
+            _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, mapping], cwd=build_dir)
             if sdk_checksum_path:
                 if _safe_copy(os.path.join(build_dir, "firmware_signed.bin"), os.path.join(build_dir, "ota.bin")):
                     _run([sdk_checksum_path, os.path.join(build_dir, "ota.bin")], strict=False)
@@ -1284,7 +1297,7 @@ def _secure_action(mode):
             mapping = "PT_PT=partition_signed.bin,CER_TBL=certable.bin,KEY_CER1=certificate_signed.bin,PT_BL_PRI=boot_signed_enc.bin,PT_FW1=firmware_signed_enc.bin,PT_ISP_IQ=firmware_isp_iq.bin"
             if os.path.exists(os.path.join(build_dir, "boot_fcs.bin")):
                 mapping += ",PT_FCSDATA=boot_fcs.bin"
-            _run([sdk_elf2bin_path, "combine", "amebapro2_partitiontable.json", out, mapping], cwd=build_dir)
+            _run([sdk_elf2bin_path, "combine", sdk_amebapro2_partitiontable_path, out, mapping], cwd=build_dir)
             if sdk_checksum_path:
                 if _safe_copy(os.path.join(build_dir, "firmware_signed_enc.bin"), os.path.join(build_dir, "ota.bin")):
                     _run([sdk_checksum_path, os.path.join(build_dir, "ota.bin")], strict=False)
@@ -1338,14 +1351,14 @@ else:
         _flash_action
     )
     Alias("flash", [flash_target])
-'''
+
 hash_target = env.Command(os.path.join(build_dir, ".stamp_hash"),     [plain_img], _secure_action("hash"))
 sign_target = env.Command(os.path.join(build_dir, ".stamp_sign"),     [plain_img], _secure_action("sign"))
 signenc_tgt = env.Command(os.path.join(build_dir, ".stamp_sign_enc"), [plain_img], _secure_action("sign_enc"))
 Alias("hash",     [hash_target])
 Alias("sign",     [sign_target])
 Alias("sign_enc", [signenc_tgt])
-'''
+
 # --- Upload --- 
 def _pick_flash_image():
     tgt = "flash_tz" if USE_TZ else "flash_ntz"
