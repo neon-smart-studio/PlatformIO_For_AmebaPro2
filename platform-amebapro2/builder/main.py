@@ -742,12 +742,12 @@ bootloader_elf = env_bootloader.Program(
         "-Wl,--gc-sections", "-Wl,--warn-section-align",
         "-Wl,-Map=" + os.path.join(build_dir, "target_bootloader.map"),
         "-Wl,--cref", "-Wl,--no-enum-size-warning",
-        "-Wl,-wrap,puts",
-        "-Wl,-wrap,printf",
-        "-Wl,-wrap,sprintf",
-        "-Wl,-wrap,snprintf",
-        "-Wl,-wrap,vsnprintf",
-        "-Wl,-wrap,vprintf",
+        "-Wl,--wrap=puts",
+        "-Wl,--wrap=printf",
+        "-Wl,--wrap=sprintf",
+        "-Wl,--wrap=snprintf",
+        "-Wl,--wrap=vsnprintf",
+        "-Wl,--wrap=vprintf",
     ]
 )
 
@@ -826,59 +826,14 @@ env_application.Append(CCFLAGS=[
 ])
 if USE_TZ:
     env_application.Append(CCFLAGS=["-DCONFIG_BUILD_NONSECURE=1"])
-    env_application.Append(CCFLAGS=["-DENABLE_SECCALL_PATCH=1"])
+    env_application.Append(CCFLAGS=["-DENABLE_SECCALL_PATCH"])
 env_application.Append(CPPPATH=[include_dirs])
 env_application.Append(CPPPATH=[proj_include])
 env_application.Append(CPPPATH=application_inc, CPPDEFINES=env.get("CPPDEFINES", []))
 application_objs = _mk_objs(env_application, application_src, ".application", os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application/obj"))
 application_proj_src = collect_sources(project_application_dir)
 application_proj_objs = _mk_objs(env_application, application_proj_src, ".application", os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application/obj"))
-if USE_TZ:
-    WRAPS_TZ = [
-        "-Wl,-wrap,hal_crypto_engine_init_platform",
-        "-Wl,-wrap,hal_pinmux_register",
-        "-Wl,-wrap,hal_pinmux_unregister",
-        "-Wl,-wrap,hal_otp_byte_rd_syss",
-        "-Wl,-wrap,hal_otp_byte_wr_syss",
-        "-Wl,-wrap,hal_sys_get_video_info",
-        "-Wl,-wrap,hal_sys_peripheral_en",
-        "-Wl,-wrap,hal_sys_set_clk",
-        "-Wl,-wrap,hal_sys_get_clk",
-        "-Wl,-wrap,hal_sys_lxbus_shared_en",
-        "-Wl,-wrap,bt_power_on",
-        "-Wl,-wrap,hal_pll_98p304_ctrl",
-        "-Wl,-wrap,hal_pll_45p158_ctrl",
-        "-Wl,-wrap,hal_osc4m_cal",
-        "-Wl,-wrap,hal_sdm_32k_enable",
-        "-Wl,-wrap,hal_sys_get_rom_ver",
-        "-Wl,-wrap,hal_otp_init",
-        "-Wl,-wrap,hal_otp_sb_key_get",
-        "-Wl,-wrap,hal_otp_sb_key_write",
-        "-Wl,-wrap,hal_otp_ssz_lock",
-        "-Wl,-wrap,hal_sys_spic_boot_finish",
-        "-Wl,-wrap,hal_sys_spic_ddr_ctrl",
-        "-Wl,-wrap,hal_sys_spic_phy_en",
-        "-Wl,-wrap,hal_sys_spic_set_phy_delay",
-        "-Wl,-wrap,hal_sys_spic_read_phy_delay",
-        "-Wl,-wrap,hal_sys_bt_uart_mux",
-        "-Wl,-wrap,hal_pwm_clock_init",
-        "-Wl,-wrap,hal_pwm_clk_sel",
-        "-Wl,-wrap,hal_timer_clock_init",
-        "-Wl,-wrap,hal_timer_group_sclk_sel",
-        "-Wl,-wrap,hal_sys_get_ld_fw_idx",
-        "-Wl,-wrap,hal_sys_get_boot_select",
-        "-Wl,-wrap,hal_sys_dbg_port_cfg",
-        "-Wl,-wrap,hal_otp_byte_rd_sys",
-        "-Wl,-wrap,hal_crypto_engine_init_s4ns",
-        "-Wl,-wrap,hal_sys_get_chip_id",
-        "-Wl,-wrap,hal_sys_get_video_img_ld_offset",
-        "-Wl,-wrap,hal_sys_cust_pws_val_ctrl",
-        "-Wl,-wrap,hal_32k_s1_sel",
-        "-Wl,-wrap,hal_xtal_divider_enable",
-        "-Wl,-wrap,hal_sys_clear_prefw_boot_fail_sts",
-    ]
-    env_application.Append(LINKFLAGS=WRAPS_TZ)
-    
+
 if USE_TZ:
     application_elf = env_application.Program(
         target=os.path.join(env.subst("$BUILD_DIR"), "amebapro2/application.elf"),
@@ -894,6 +849,47 @@ if USE_TZ:
             "-Wl,--gc-sections", "-Wl,--warn-section-align",
             "-Wl,-Map=" + os.path.join(build_dir, "target_application.map"),
             "-Wl,--cref", "-Wl,--no-enum-size-warning",
+            "-Wl,--wrap=hal_crypto_engine_init_platform",
+            "-Wl,--wrap=hal_pinmux_register",
+            "-Wl,--wrap=hal_pinmux_unregister",
+            "-Wl,--wrap=hal_otp_byte_rd_syss",
+            "-Wl,--wrap=hal_otp_byte_wr_syss",
+            "-Wl,--wrap=hal_sys_get_video_info",
+            "-Wl,--wrap=hal_sys_peripheral_en",
+            "-Wl,--wrap=hal_sys_set_clk",
+            "-Wl,--wrap=hal_sys_get_clk",
+            "-Wl,--wrap=hal_sys_lxbus_shared_en",
+            "-Wl,--wrap=bt_power_on",
+            "-Wl,--wrap=hal_pll_98p304_ctrl",
+            "-Wl,--wrap=hal_pll_45p158_ctrl",
+            "-Wl,--wrap=hal_osc4m_cal",
+            "-Wl,--wrap=hal_sdm_32k_enable",
+            "-Wl,--wrap=hal_sys_get_rom_ver",
+            "-Wl,--wrap=hal_otp_init",
+            "-Wl,--wrap=hal_otp_sb_key_get",
+            "-Wl,--wrap=hal_otp_sb_key_write",
+            "-Wl,--wrap=hal_otp_ssz_lock",
+            "-Wl,--wrap=hal_sys_spic_boot_finish",
+            "-Wl,--wrap=hal_sys_spic_ddr_ctrl",
+            "-Wl,--wrap=hal_sys_spic_phy_en",
+            "-Wl,--wrap=hal_sys_spic_set_phy_delay",
+            "-Wl,--wrap=hal_sys_spic_read_phy_delay",
+            "-Wl,--wrap=hal_sys_bt_uart_mux",
+            "-Wl,--wrap=hal_pwm_clock_init",
+            "-Wl,--wrap=hal_pwm_clk_sel",
+            "-Wl,--wrap=hal_timer_clock_init",
+            "-Wl,--wrap=hal_timer_group_sclk_sel",
+            "-Wl,--wrap=hal_sys_get_ld_fw_idx",
+            "-Wl,--wrap=hal_sys_get_boot_select",
+            "-Wl,--wrap=hal_sys_dbg_port_cfg",
+            "-Wl,--wrap=hal_otp_byte_rd_sys",
+            "-Wl,--wrap=hal_crypto_engine_init_s4ns",
+            "-Wl,--wrap=hal_sys_get_chip_id",
+            "-Wl,--wrap=hal_sys_get_video_img_ld_offset",
+            "-Wl,--wrap=hal_sys_cust_pws_val_ctrl",
+            "-Wl,--wrap=hal_32k_s1_sel",
+            "-Wl,--wrap=hal_xtal_divider_enable",
+            "-Wl,--wrap=hal_sys_clear_prefw_boot_fail_sts",
         ]
     )
 else:
