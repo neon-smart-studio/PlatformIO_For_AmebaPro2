@@ -620,6 +620,7 @@ application_inc = [
     os.path.join(sdk_dir, "component/network"),
 
     os.path.join(sdk_dir, "component/file_system/fwfs"),
+    os.path.join(sdk_dir, "component/file_system/nn"),
     os.path.join(sdk_dir, "component/file_system/system_data"),
 
     os.path.join(sdk_dir, "component/mbed/api"),
